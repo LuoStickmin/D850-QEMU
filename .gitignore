@@ -1,0 +1,11 @@
+.build/
+.local/
+runs/
+.test-tmp/
+.venv/
+__pycache__/
+*.pyc
+
+# Runtime logs are not committed; evidence/ pages are.
+*.log
+!evidence/**/*.log
