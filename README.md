@@ -1,5 +1,7 @@
 # D850-QEMU
 
+> [English](README.en.md)
+
 Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `nikon-d850`
 板级 overlay、一个运行/取证工具，以及从 `b1330_131.bin` 真实字节得出的启动链结论。
 
