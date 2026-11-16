@@ -35,17 +35,21 @@ secrets, or any other third-party rights.**
 ## 2. 固件版权、EULA 与获取 / Firmware copyright, EULA, acquisition
 
 相机固件镜像的版权归 Nikon Corporation 或其许可方所有，并可能受最终用户许可协议
-（EULA）、更新服务条款、保修条款或其他合同约束。**本仓库不包含、也不下载任何
-Nikon 固件镜像、解密后模块、密钥、签名材料、boot ROM、flash dump 或改后镜像。**
+（EULA）、更新服务条款、保修条款或其他合同约束。**本仓库不包含完整 Nikon 固件
+镜像、解密模块、密钥、签名材料、boot ROM、flash dump 或改后镜像，也不下载它们。**
 `.gitignore` 排除了运行目录；`evidence/` 只保存偏移、地址、异常与 MMIO 摘要等
-事实性数据，不含固件字节。
+事实性数据。文档为说明启动链会引用少量指令字/地址（如 `e59ff018`），这是识别与
+分析所必需的短摘录，不构成完整镜像或可运行固件。
 
 Camera firmware images are copyrighted by Nikon Corporation or its licensors and
 may be subject to end-user license agreements (EULA), update-service terms,
-warranty terms, or other contracts. **This repository contains and downloads no
-Nikon firmware image, decrypted module, key, signature material, boot ROM, flash
-dump, or modified image.** `runs/` is ignored; `evidence/` contains only factual
-data such as offsets, addresses, exception and MMIO summaries, not firmware bytes.
+warranty terms, or other contracts. **This repository contains no full Nikon
+firmware image, decrypted module, key, signature material, boot ROM, flash dump,
+or modified image, and downloads none of them.** `runs/` is ignored; `evidence/`
+contains only factual data such as offsets, addresses, exception and MMIO
+summaries. The documentation quotes short instruction words/addresses (for
+example `e59ff018`) needed to identify and explain the boot chain; these are not
+a full image or runnable firmware.
 
 你只能使用你**合法取得、且有权研究**的镜像。固件 EULA 可能限制逆向工程、解密或
 修改；是否违反取决于你与 Nikon 之间的合同及你所在司法辖区的法律。**本项目不
@@ -107,7 +111,7 @@ particular use.**
 
 本仓库明确**不包含、不提供**：
 
-1. Nikon 固件、更新包、解密模块或其中任何片段；
+1. Nikon 固件、更新包、解密模块的完整镜像或可运行的大段代码（说明性短摘录除外）；
 2. 解密密钥、K8 密钥、T1/T2/T3 表或类似密钥材料；
 3. boot ROM、SPI flash dump、相机 RAM dump 或整片镜像；
 4. 可刷写的改后镜像、签名工具、校验绕过或更新器绕过；
@@ -118,7 +122,7 @@ particular use.**
 
 This repository explicitly **does not contain or provide**:
 
-1. Nikon firmware, update packages, decrypted modules, or any fragment thereof;
+1. full Nikon firmware, update packages, decrypted modules, or substantial runnable code (short explanatory excerpts excepted);
 2. decryption keys, K8 keys, T1/T2/T3 tables, or similar key material;
 3. boot ROM, SPI flash dumps, camera RAM dumps, or full images;
 4. flashable modified images, signing tools, verification bypass, or updater bypass;

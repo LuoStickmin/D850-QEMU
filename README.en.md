@@ -4,7 +4,7 @@ A QEMU validation prototype for Nikon D850 (EXPEED 5 / E5) firmware research:
 one `nikon-d850` board overlay, a runner/evidence tool, and boot-chain
 conclusions derived from the real bytes of `b1330_131.bin`.
 
-> This repository contains **no Nikon firmware, key or modified image**.
+> This repository contains **no full Nikon firmware, key or modified image**; the docs quote only short instruction words/addresses needed for explanation.
 > Supply your own decrypted firmware; the tools only read it.
 >
 > License: **GPL-2.0-or-later** (code and docs) · unofficial project · not
@@ -191,7 +191,7 @@ the init disassembly, the QEMU fixture and the `0x40028FF8` hand-off point.
 - **Copyright**: Copyright (C) 2026 LuoStickmin and D850-QEMU contributors;
   portions of the method and board code derive from the author's
   [D750-QEMU](https://github.com/LuoStickmin/D750-QEMU) (GPL-2.0-or-later).
-- **No firmware/keys**: the repository contains no Nikon firmware, decrypted
+- **No firmware/keys**: the repository contains no full Nikon firmware, decrypted
   module, K8/T1/T2/T3 material, boot ROM, flash/RAM dump, flashable modified
   image, or Nikon font/icon/UI asset.
 - **Unofficial**: not affiliated with, authorized by, sponsored by, or endorsed

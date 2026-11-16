@@ -63,14 +63,16 @@ license of the source tree you build against (GPLv2 overall).
 
 ## 4. 固件、密钥与商标 / Firmware, keys and trademarks
 
-- 本仓库**不包含** Nikon 固件、解密模块、密钥、K8/T1/T2/T3 表、boot ROM、
-  flash/RAM dump、可刷写改后镜像、Nikon 字体/图标/UI 素材。
+- 本仓库**不包含完整** Nikon 固件、解密模块、密钥、K8/T1/T2/T3 表、boot ROM、
+  flash/RAM dump、可刷写改后镜像、Nikon 字体/图标/UI 素材；文档只引用说明所需的
+  短指令字/地址。
 - 固件版权归 Nikon Corporation 或其许可方；你只能使用合法取得且有权研究的镜像。
 - “Nikon”“D850”“EXPEED”等是各自权利人的商标，仅用于指名性说明研究对象。
 - 本项目与 Nikon 无关联，未获授权、赞助或背书。
-- This repository **contains no** Nikon firmware, decrypted module, key,
+- This repository **contains no full** Nikon firmware, decrypted module, key,
   K8/T1/T2/T3 table, boot ROM, flash/RAM dump, flashable modified image, or
-  Nikon font/icon/UI asset.
+  Nikon font/icon/UI asset; the documentation quotes only short instruction
+  words/addresses needed for explanation.
 - Firmware is copyrighted by Nikon Corporation or its licensors; use only images
   you lawfully obtained and are entitled to study.
 - "Nikon", "D850", "EXPEED" and related marks belong to their owners and are used

@@ -16,8 +16,8 @@ Nikon or WonderLantern.
 The following are **not accepted** in attachments, patches, test fixtures, issue
 pastebins, or Git history:
 
-1. **Nikon firmware**: `.bin`, update packages, decrypted modules, or any full
-   image fragment;
+1. **Nikon firmware**: `.bin`, update packages, decrypted modules, full images,
+   or substantial runnable code;
 2. **keys/key tables**: `key_all.json`, K8, T1/T2/T3, decryptor output;
 3. **boot ROM, SPI flash dumps, camera RAM dumps**, or their code/data/tables;
 4. **Nikon copyrighted material**: fonts, icons, UI text/translations, menu

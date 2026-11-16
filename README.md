@@ -3,7 +3,7 @@
 Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `nikon-d850`
 板级 overlay、一个运行/取证工具，以及从 `b1330_131.bin` 真实字节得出的启动链结论。
 
-> 本仓库**不包含任何 Nikon 固件、密钥或改后镜像**。固件由你本地提供，工具只读。
+> 本仓库**不包含完整 Nikon 固件、密钥或改后镜像**；文档只引用说明所需的短指令字/地址。固件由你本地提供，工具只读。
 >
 > 许可：**GPL-2.0-or-later**（代码与文档）· 非官方项目 · 与 Nikon 无关联 ·
 > 使用前请阅读 [法律声明](LEGAL.md)。
@@ -226,7 +226,7 @@ init 反汇编与 QEMU 夹具、`0x40028FF8` 交接点。
 - **版权**：Copyright (C) 2026 LuoStickmin and D850-QEMU contributors；
   部分方法与板级代码源自作者的 [D750-QEMU](https://github.com/LuoStickmin/D750-QEMU)
   （GPL-2.0-or-later）。
-- **不含固件/密钥**：仓库不包含 Nikon 固件、解密模块、K8/T1/T2/T3、boot ROM、
+- **不含固件/密钥**：仓库不包含完整 Nikon 固件、解密模块、K8/T1/T2/T3、boot ROM、
   flash/RAM dump、可刷写改后镜像或 Nikon 字体/图标/UI 素材。
 - **非官方**：与 Nikon Corporation 无关联，未获授权、赞助或背书；“Nikon”
   “D850”“EXPEED”是各自权利人的商标，仅用于指名性说明。
