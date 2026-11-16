@@ -5,7 +5,7 @@
 - QEMU **11.1.0** 源码树（已实测）；
 - C 工具链与 QEMU 的常规依赖：`build-essential ninja-build pkg-config
   libglib2.0-dev libpixman-1-dev zlib1g-dev libfdt-dev`；
-- Python 3.8+（`prepare_source.py`、`tools/run.py`、`tests/`）。
+- Python 3.10+（`prepare_source.py`、`tools/run.py`、`tests/`）。
 
 QEMU 10.2.4 有 `CharFrontend` → `CharBackend` 的文本适配，但没有在本仓库里
 编译验证；遇到问题请先回到 11.1.0。
@@ -120,8 +120,8 @@ qemu-system-arm \
 python3 tests/run_tests.py
 ```
 
-10 个主机侧用例：`prepare_source` 幂等/版本适配、`run.py` 的机器参数、
-异常/MMIO/halt 解析。测试不需要 QEMU 构建。
+11 个主机侧用例：`prepare_source` 幂等/版本适配、`run.py` 的机器参数、
+异常/MMIO/halt 解析、Markdown 链接完整性。测试不需要 QEMU 构建。
 
 ## 8. 常见问题
 

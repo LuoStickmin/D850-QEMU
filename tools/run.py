@@ -269,6 +269,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    payload = Path(args.payload)
+    if not payload.is_file():
+        print(f"error: payload not found: {payload}", file=sys.stderr)
+        return 2
     qemu = find_qemu(args.qemu)
     if qemu is None:
         print("error: qemu-system-arm not found; build the overlay "
