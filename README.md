@@ -4,6 +4,9 @@ Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `niko
 板级 overlay、一个运行/取证工具，以及从 `b1330_131.bin` 真实字节得出的启动链结论。
 
 > 本仓库**不包含任何 Nikon 固件、密钥或改后镜像**。固件由你本地提供，工具只读。
+>
+> 许可：**GPL-2.0-or-later**（代码与文档）· 非官方项目 · 与 Nikon 无关联 ·
+> 使用前请阅读 [法律声明](LEGAL.md)。
 
 ## 核心目标（先读）
 
@@ -171,8 +174,12 @@ boot ROM 的页表；它只证明“init 自身没有缺页表逻辑”，并把
 ├── evidence/                   运行证据（Markdown + LPAE 夹具二进制）
 ├── README.md / README.en.md
 ├── CHANGELOG.md
-├── NOTICE.md
-└── LICENSE                     GPL-2.0
+├── LEGAL.md                    法律与合规声明（中英双语）
+├── NOTICE.md                   版权/许可/上游/第三方
+├── CONTRIBUTING.md / .en.md    贡献规则与 DCO
+├── SECURITY.md                 漏洞报告与安全边界
+├── CODE_OF_CONDUCT.md          行为准则
+└── LICENSE                     GPL-2.0（or later）
 ```
 
 ## 与 D750-QEMU 的关系
@@ -203,14 +210,36 @@ D850 专属部分：E5 的 `0x10000000`/`0x40000000` 版图、LPAE init 分析�
 已经具备、无需再提供：解密后的 `b1330_131.bin`、E5 的向量/异常表、
 init 反汇编与 QEMU 夹具、`0x40028FF8` 交接点。
 
+> 上述固件/dump 输入只用于你本地的分析。**不要把固件、密钥、boot ROM、flash/RAM
+> dump 或改后镜像附到仓库、issue 或 PR**；如需讨论，请只提供不含代码/数据的事实性
+> 摘要（地址、偏移、哈希、异常记录）。
+
 没有新输入时仍可做：把 `0x400E8450/54/58` 建成寄存器模型，观察 init 在
 不同返回值下的分支；或对 `0x40028FF8` 放最小 `bx lr`/`b .` 桩，记录返回契约。
 这些都属于夹具，不会冒充 boot ROM。
 
-## 许可与声明
+## 许可、法律与贡献
 
-- 板级 overlay 与工具：**GPL-2.0-or-later**（见 [LICENSE](LICENSE)）。
-- 上游 QEMU 保留其自身许可；Nikon 固件版权归 Nikon Corporation，仓库不附带。
-- “D850”“EXPEED”是 Nikon 的商标，仅用于说明兼容对象。
-- 本仓库不提供刷机流程、签名或改后镜像；不承诺任何实机可用性。
-  详见 [NOTICE.md](NOTICE.md)。
+- **代码与文档**：GPL-2.0-or-later（GNU GPL v2 或任何更晚版本）。完整 GPLv2
+  文本见 [LICENSE](LICENSE)；SPDX 头与 [NOTICE.md](NOTICE.md) 给出“或更晚版本”
+  的选择权。
+- **版权**：Copyright (C) 2026 LuoStickmin and D850-QEMU contributors；
+  部分方法与板级代码源自作者的 [D750-QEMU](https://github.com/LuoStickmin/D750-QEMU)
+  （GPL-2.0-or-later）。
+- **不含固件/密钥**：仓库不包含 Nikon 固件、解密模块、K8/T1/T2/T3、boot ROM、
+  flash/RAM dump、可刷写改后镜像或 Nikon 字体/图标/UI 素材。
+- **非官方**：与 Nikon Corporation 无关联，未获授权、赞助或背书；“Nikon”
+  “D850”“EXPEED”是各自权利人的商标，仅用于指名性说明。
+- **不是法律意见**：逆向工程、反规避（如 DMCA §1201、EU 2009/24/EC）、EULA、
+  出口管制与保修问题因司法辖区而异；使用前请咨询律师。
+- **无担保**：按 GPL 的“AS IS”条款提供；不对相机损坏、变砖、数据丢失、保修
+  失效或法律后果负责。QEMU 不是安全边界，请在隔离环境运行。
+
+| 文件 | 内容 |
+| --- | --- |
+| [LICENSE](LICENSE) | GPLv2 全文 |
+| [NOTICE.md](NOTICE.md) | 版权、许可范围、上游与第三方 |
+| [LEGAL.md](LEGAL.md) | 法律与合规说明（中英双语，非法律意见） |
+| [CONTRIBUTING.md](CONTRIBUTING.md) / [CONTRIBUTING.en.md](CONTRIBUTING.en.md) | 贡献规则、DCO、禁止内容 |
+| [SECURITY.md](SECURITY.md) | 漏洞报告与安全边界 |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 行为准则 |

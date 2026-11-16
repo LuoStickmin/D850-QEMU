@@ -1,0 +1,12 @@
+blank_issues_enabled: true
+
+contact_links:
+  - name: 安全漏洞 / Security vulnerability
+    url: https://github.com/LuoStickmin/D850-QEMU/blob/main/SECURITY.md
+    about: 请通过私密渠道报告，不要在公开 issue 中给出利用细节。
+  - name: 法律与许可 / Legal and licensing
+    url: https://github.com/LuoStickmin/D850-QEMU/blob/main/LEGAL.md
+    about: 先阅读法律声明；本文不是法律意见。
+  - name: 贡献边界 / Contributing rules
+    url: https://github.com/LuoStickmin/D850-QEMU/blob/main/CONTRIBUTING.md
+    about: 提交前确认禁止内容、DCO 与测试要求。

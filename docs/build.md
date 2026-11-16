@@ -137,3 +137,12 @@ python3 tests/run_tests.py
 
 **编译警告 `CharFrontend`/`CharBackend`**：10.x 源码树请用
 `prepare_source.py` 自动改写，不要手工交换。
+
+## 9. 贡献、法律与安全
+
+- 贡献规则、DCO 与禁止提交的内容：[CONTRIBUTING.md](../CONTRIBUTING.md) /
+  [CONTRIBUTING.en.md](../CONTRIBUTING.en.md)
+- 法律与合规说明（非法律意见）：[LEGAL.md](../LEGAL.md)
+- 许可、版权、上游与第三方：[NOTICE.md](../NOTICE.md)
+- 漏洞报告与安全边界：[SECURITY.md](../SECURITY.md)
+- 行为准则：[CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)

@@ -6,6 +6,9 @@ conclusions derived from the real bytes of `b1330_131.bin`.
 
 > This repository contains **no Nikon firmware, key or modified image**.
 > Supply your own decrypted firmware; the tools only read it.
+>
+> License: **GPL-2.0-or-later** (code and docs) · unofficial project · not
+> affiliated with Nikon · read the [Legal Notice](LEGAL.md) before use.
 
 ## Core goal
 
@@ -175,8 +178,37 @@ the E5 `0x10000000`/`0x40000000` layout, the LPAE init analysis, the
 Already available: the decrypted `b1330_131.bin`, the vector/exception tables,
 the init disassembly, the QEMU fixture and the `0x40028FF8` hand-off point.
 
-## Licence
+> Those firmware/dump inputs are for local analysis only. **Do not attach
+> firmware, keys, boot ROM, flash/RAM dumps or modified images to the repository,
+> issues or PRs.** If discussion is needed, share only factual summaries without
+> code/data (addresses, offsets, hashes, exception records).
 
-Board overlay and tools: **GPL-2.0-or-later** (see [LICENSE](LICENSE)).
-Nikon firmware remains © Nikon Corporation and is not distributed here.
-See [NOTICE.md](NOTICE.md).
+## License, legal and contributing
+
+- **Code and documentation**: GPL-2.0-or-later (GNU GPL v2 or any later version).
+  The full GPLv2 text is in [LICENSE](LICENSE); SPDX headers and
+  [NOTICE.md](NOTICE.md) grant the "or later" option.
+- **Copyright**: Copyright (C) 2026 LuoStickmin and D850-QEMU contributors;
+  portions of the method and board code derive from the author's
+  [D750-QEMU](https://github.com/LuoStickmin/D750-QEMU) (GPL-2.0-or-later).
+- **No firmware/keys**: the repository contains no Nikon firmware, decrypted
+  module, K8/T1/T2/T3 material, boot ROM, flash/RAM dump, flashable modified
+  image, or Nikon font/icon/UI asset.
+- **Unofficial**: not affiliated with, authorized by, sponsored by, or endorsed
+  by Nikon; "Nikon", "D850" and "EXPEED" are marks of their owners, used only
+  descriptively.
+- **Not legal advice**: reverse engineering, anti-circumvention (e.g. DMCA §1201,
+  EU 2009/24/EC), EULA, export-control and warranty questions vary by
+  jurisdiction; consult a lawyer before use.
+- **No warranty**: provided "AS IS" under the GPL; no liability for camera damage,
+  bricking, data loss, voided warranty or legal consequences. QEMU is not a
+  security boundary; run it in an isolated environment.
+
+| File | Purpose |
+| --- | --- |
+| [LICENSE](LICENSE) | full GPLv2 text |
+| [NOTICE.md](NOTICE.md) | copyright, license scope, upstream and third parties |
+| [LEGAL.md](LEGAL.md) | legal/compliance note (bilingual, not legal advice) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) / [CONTRIBUTING.en.md](CONTRIBUTING.en.md) | contribution rules, DCO, prohibited content |
+| [SECURITY.md](SECURITY.md) | vulnerability reporting and security boundary |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | code of conduct |

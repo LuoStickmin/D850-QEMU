@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.1 — 2026-11-16
+
+Open-source and legal documentation completion.
+
+### Added
+
+- `LEGAL.md`: bilingual legal/compliance notice (non-affiliation, firmware
+  copyright/EULA, reverse engineering and anti-circumvention, no warranty,
+  export control, privacy, third parties, notifications).
+- `CONTRIBUTING.md` and `CONTRIBUTING.en.md`: prohibited-content list, DCO 1.1
+  sign-off, testing and privacy rules.
+- `SECURITY.md`: scope, private reporting, response expectations, good-faith
+  research and the QEMU security-boundary warning.
+- `CODE_OF_CONDUCT.md`, `.github/PULL_REQUEST_TEMPLATE.md` and issue templates
+  with firmware/key warnings.
+- Explicit copyright and GPL-2.0-or-later statements in `NOTICE.md` and the
+  READMEs.
+
+### Changed
+
+- Expanded `NOTICE.md` with license scope, upstream attribution, third-party
+  components and trademark/firmware boundaries.
+- README license sections now link the legal, contribution and security docs.
+
 ## 0.1.0 — 2026-11-16
 
 Initial D850 split from the D750-QEMU method.
