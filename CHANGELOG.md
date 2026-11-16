@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.2 — 2026-11-16
+
+Boot ROM size estimate and acquisition plan.
+
+### Added
+
+- `docs/bootrom.md`: distinguishes the `0x40000000` runtime window from the
+  physical mask ROM; estimates ≥184 KiB from the vectors, ≥263 KiB from the
+  in-image region table (`0x40000000+0x2F0D8`, `0x4002F100+0x12BA8 =
+  0x40041CA8`), recommends a 512 KiB dump, and lists what each artifact alone
+  can and cannot reach.
+- README/docs now link the estimate and the recommended dump ranges.
+
 ## 0.1.1 — 2026-11-16
 
 Open-source and legal documentation completion.

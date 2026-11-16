@@ -175,6 +175,12 @@ the E5 `0x10000000`/`0x40000000` layout, the LPAE init analysis, the
 4. A hardware UART boot log — to confirm which segments the boot ROM copies.
 5. A D5 (same E5 generation) dump — to interpret `0x400E8450/54/58`.
 
+See [docs/bootrom.md](docs/bootrom.md) for the size estimate: the
+`0x40000000` window is at least ~184 KiB (vectors), at least ~263 KiB if the
+in-image region table is a load map, and a **512 KiB**
+(`0x40000000..0x4007FFFF`) dump is recommended. The physical mask ROM may be
+smaller and is not necessarily the same object.
+
 Already available: the decrypted `b1330_131.bin`, the vector/exception tables,
 the init disassembly, the QEMU fixture and the `0x40028FF8` hand-off point.
 

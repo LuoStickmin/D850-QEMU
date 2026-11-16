@@ -172,6 +172,7 @@ boot ROM 的页表；它只证明“init 自身没有缺页表逻辑”，并把
 ├── docs/
 │   ├── status.md               当前状态、三次实验的完整命令与结果
 │   ├── boot-chain.md           字节级启动链分析（向量表/reset/init/交接）
+│   ├── bootrom.md              boot ROM 尺寸估计、抓取范围与“只拿到 ROM”能走多远
 │   └── build.md                构建与运行说明
 ├── evidence/                   运行证据（Markdown + LPAE 夹具二进制）
 ├── README.md / README.en.md
@@ -208,6 +209,10 @@ D850 专属部分：E5 的 `0x10000000`/`0x40000000` 版图、LPAE init 分析�
 3. **Nikon 服务/维修固件里的 recovery/boot 镜像**（如 Tornado NKN）；
 4. **硬件 UART 启动日志**——确认 boot ROM 把哪些段拷到 `0x4002xxxx`；
 5. 其他 E5 机型（D5）的同类 dump——用于判断 `0x400E8450/54/58` 的语义。
+
+尺寸与抓取范围估计见 [docs/bootrom.md](docs/bootrom.md)：`0x40000000` 窗至少
+~184 KiB（覆盖向量），按段表边界至少 ~263 KiB，建议按 **512 KiB**
+（`0x40000000..0x4007FFFF`）抓取；物理 mask ROM 可能更小，且不一定是同一个东西。
 
 已经具备、无需再提供：解密后的 `b1330_131.bin`、E5 的向量/异常表、
 init 反汇编与 QEMU 夹具、`0x40028FF8` 交接点。
