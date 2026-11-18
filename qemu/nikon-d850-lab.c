@@ -43,10 +43,13 @@
 
 #include "chardev/char-fe.h"
 #include "exec/cpu-common.h"
+#include "hw/arm/armv7m.h"
 #include "hw/arm/machines-qom.h"
 #include "hw/core/boards.h"
+#include "hw/core/clock.h"
 #include "hw/core/cpu.h"
 #include "hw/core/loader.h"
+#include "hw/core/qdev-clock.h"
 #include "hw/core/qdev-properties.h"
 #include "hw/core/sysbus.h"
 #include "hw/cpu/a9mpcore.h"
@@ -54,6 +57,7 @@
 #include "qom/object.h"
 #include "system/cpus.h"
 #include "system/memory.h"
+#include "system/reset.h"
 #include "system/runstate.h"
 #include "system/system.h"
 #include "target/arm/cpu.h"
@@ -1999,3 +2003,355 @@ static void nikon_d850_register_types(void)
 }
 
 type_init(nikon_d850_register_types);
+
+/* ================================================================== */
+/* Nikon D850 M-core (Firmware A / a1330) validation prototype        */
+/* ================================================================== */
+/*
+ * The D850 carries a second, Cortex-M class core whose firmware is the
+ * "Firmware A" image (a1330, 1 MiB, BE8: little-endian Thumb code with a
+ * big-endian vector table).  This machine is deliberately minimal -- 1 MiB
+ * flash at 0, 256 KiB SRAM at 0x20000000, and a catch-all diagnostic window.
+ * It exists to answer one question at a time: which peripheral does the
+ * M-core touch first, and how far does its reset path get before a modelled
+ * device is required?
+ *
+ * The image is a local, user-supplied input; nothing is embedded here.
+ */
+
+#define TYPE_NIKON_D850_MCORE_MACHINE MACHINE_TYPE_NAME("nikon-d850-mcore")
+
+#define MCORE_FLASH_SIZE (1 * MiB)
+#define MCORE_SRAM_BASE  0x20000000ULL
+#define MCORE_SRAM_SIZE  (256 * KiB)
+
+typedef struct NikonD850McoreState {
+    MachineState parent;
+    MemoryRegion board;         /* passed to armv7m as the physical space */
+    MemoryRegion flash;         /* a1330 at 0x00000000                    */
+    MemoryRegion sram;          /* MSP lives near the top of this bank    */
+    MemoryRegion probe;         /* catch-all diagnostic window            */
+    ARMv7MState armv7m;
+    MemoryRegion scb;           /* BE8-visible CPACR/VTOR shim            */
+    uint32_t scb_regs[0x100 / 4];
+    uint8_t *image;
+    uint8_t *flash_image;
+    gsize image_size;
+    bool strict;
+    uint64_t probe_events;
+} NikonD850McoreState;
+
+DECLARE_INSTANCE_CHECKER(NikonD850McoreState, NIKON_D850_MCORE,
+                         TYPE_NIKON_D850_MCORE_MACHINE)
+
+static uint32_t mcore_guest_pc(void)
+{
+    CPUState *cs = current_cpu;
+
+    return cs ? ARM_CPU(cs)->env.regs[15] : 0;
+}
+
+static uint64_t mcore_probe_read(void *opaque, hwaddr addr, unsigned size)
+{
+    NikonD850McoreState *s = opaque;
+
+    if (s->strict) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "mcore-strict: pc=0x%08x rd addr=0x%08" HWADDR_PRIx
+                      " size=%u (first unmodelled access, stopping)\n",
+                      mcore_guest_pc(), addr, size);
+        qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_SHUTDOWN);
+        return 0;
+    }
+
+    if (s->probe_events < 256 || (s->probe_events % 1024) == 0) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "mcore-probe: pc=0x%08x rd addr=0x%08" HWADDR_PRIx
+                      " size=%u (unmodelled read, returning 0)\n",
+                      mcore_guest_pc(), addr, size);
+    }
+    s->probe_events++;
+    return 0;
+}
+
+static void mcore_probe_write(void *opaque, hwaddr addr, uint64_t value,
+                              unsigned size)
+{
+    NikonD850McoreState *s = opaque;
+
+    if (s->strict) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "mcore-strict: pc=0x%08x wr addr=0x%08" HWADDR_PRIx
+                      " size=%u value=0x%08" PRIx64
+                      " (first unmodelled access, stopping)\n",
+                      mcore_guest_pc(), addr, size, value);
+        qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_SHUTDOWN);
+        return;
+    }
+
+    if (s->probe_events < 256 || (s->probe_events % 1024) == 0) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "mcore-probe: pc=0x%08x wr addr=0x%08" HWADDR_PRIx
+                      " size=%u value=0x%08" PRIx64
+                      " (unmodelled write)\n",
+                      mcore_guest_pc(), addr, size, value);
+    }
+    s->probe_events++;
+}
+
+static const MemoryRegionOps mcore_probe_ops = {
+    .read = mcore_probe_read,
+    .write = mcore_probe_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid.min_access_size = 1,
+    .valid.max_access_size = 8,
+    .impl.min_access_size = 1,
+    .impl.max_access_size = 8,
+};
+
+/*
+ * Diagnostic register file for the first M-core peripherals seen in the
+ * reset path: 0x400F2000 (clock/reset-ish) and 0x400F3000 (command/status,
+ * polled).  Reads return the last written value, which is enough to satisfy
+ * the write/read-back handshakes in the reset code; it is not a model of the
+ * hardware.  Reuses the A-core D850IoStub register-file ops.
+ */
+static void mcore_add_regfile(NikonD850McoreState *s, uint64_t base,
+                              uint32_t size, const char *name)
+{
+    D850IoStub *st = g_new0(D850IoStub, 1);
+
+    st->base = base;
+    st->size = size;
+    st->regs = g_new0(uint32_t, size / 4);
+    memory_region_init_io(&st->mr, OBJECT(s), &d850_io_stub_ops, st, name,
+                          size);
+    memory_region_add_subregion(&s->board, base, &st->mr);
+}
+
+/*
+ * The ARMv7-M NVIC models its system registers as little-endian.  A BE8
+ * guest writes 0x2000FC00 to VTOR and 0x00F00000 to CPACR; through the LE
+ * NVIC those arrive as 0x00FC0020 and 0x0000F000, so the vector base and the
+ * FPU enable are wrong.  This tiny big-endian window shadows just the SCB
+ * page and keeps VTOR/CPACR in CPUARMState, which is what the CPU actually
+ * uses.  It is a BE8 fixup, not a hardware model.
+ */
+static uint64_t mcore_scb_read(void *opaque, hwaddr addr, unsigned size)
+{
+    NikonD850McoreState *s = opaque;
+    CPUARMState *env = &s->armv7m.cpu->env;
+
+    switch (addr) {
+    case 0x08:
+        return env->v7m.vecbase[M_REG_NS];
+    case 0x88:
+        return env->v7m.cpacr[M_REG_NS];
+    default:
+        return (addr < sizeof(s->scb_regs)) ? s->scb_regs[addr / 4] : 0;
+    }
+}
+
+static void mcore_scb_write(void *opaque, hwaddr addr, uint64_t value,
+                            unsigned size)
+{
+    NikonD850McoreState *s = opaque;
+    CPUARMState *env = &s->armv7m.cpu->env;
+
+    switch (addr) {
+    case 0x08:
+        env->v7m.vecbase[M_REG_NS] = value & 0xffffff80u;
+        break;
+    case 0x88:
+        env->v7m.cpacr[M_REG_NS] = value & (0xfu << 20);
+        break;
+    default:
+        if (addr < sizeof(s->scb_regs)) {
+            s->scb_regs[addr / 4] = value;
+        }
+        break;
+    }
+}
+
+static const MemoryRegionOps mcore_scb_ops = {
+    .read = mcore_scb_read,
+    .write = mcore_scb_write,
+    .endianness = DEVICE_BIG_ENDIAN,
+    .valid.min_access_size = 4,
+    .valid.max_access_size = 4,
+    .impl.min_access_size = 4,
+    .impl.max_access_size = 4,
+};
+
+/*
+ * The a1330 vector table is stored big-endian while the Thumb code is
+ * little-endian (BE8).  QEMU's M-profile reset reads the table with ldl_p
+ * (little-endian), so it gets 0x30fa0020/0x0dc20000 instead of the real
+ * MSP/PC.  We therefore take SP/PC from the raw file and force CPSR.E so
+ * data accesses are big-endian while instruction fetch stays little-endian.
+ * The ROM blob is copied into place during the same reset; the reset
+ * handler only has to fix up the CPU state.
+ */
+static void nikon_d850_mcore_reset(void *opaque)
+{
+    NikonD850McoreState *s = opaque;
+    ARMCPU *cpu;
+    CPUARMState *env;
+    uint32_t sp, pc;
+
+    if (!s->armv7m.cpu || s->image_size < 8) {
+        return;
+    }
+    cpu = s->armv7m.cpu;
+    env = &cpu->env;
+
+    sp = ldl_be_p(s->image);
+    pc = ldl_be_p(s->image + 4);
+
+    env->regs[13] = sp & ~3u;
+    env->regs[15] = pc & ~1u;
+    env->thumb = 1;
+    env->regs[14] = 0xffffffff;
+    env->v7m.exception = 0;
+    env->v7m.vecbase[M_REG_NS] = 0;
+    env->v7m.control[M_REG_NS] = 0;
+    env->uncached_cpsr |= CPSR_E;
+    arm_rebuild_hflags(env);
+}
+
+static void nikon_d850_mcore_init(MachineState *machine)
+{
+    NikonD850McoreState *s = NIKON_D850_MCORE(machine);
+    DeviceState *dev;
+    Clock *clk;
+    gsize size = 0;
+    GError *err = NULL;
+    unsigned i;
+
+    if (!machine->kernel_filename) {
+        error_report("nikon-d850-mcore: -kernel FILE (a1330 Firmware A) is "
+                     "required");
+        exit(1);
+    }
+    if (!g_file_get_contents(machine->kernel_filename, (gchar **)&s->image,
+                             &size, &err)) {
+        error_report("%s", err->message);
+        g_error_free(err);
+        exit(1);
+    }
+    if (size < 8 || size > MCORE_FLASH_SIZE) {
+        error_report("nikon-d850-mcore: image must be 8..%" PRIu64 " bytes",
+                     (uint64_t)MCORE_FLASH_SIZE);
+        exit(1);
+    }
+    s->image_size = size;
+
+    /*
+     * QEMU's M-profile reset and exception entry read the vector table with
+     * ldl_p (little-endian).  The a1330 table is big-endian, so put a
+     * word-swapped copy of the 16-entry table in flash for the CPU, while
+     * keeping the original big-endian image for SP/PC values.  This is a
+     * fixture for QEMU's LE vector fetch, not a modification of the dump.
+     */
+    s->flash_image = g_memdup2(s->image, s->image_size);
+    for (i = 0; i < 0x40 && i + 4 <= s->image_size; i += 4) {
+        stl_le_p(s->flash_image + i, ldl_be_p(s->image + i));
+    }
+
+    memory_region_init(&s->board, OBJECT(machine), "mcore.board",
+                       0x100000000ULL);
+    memory_region_init_ram(&s->flash, NULL, "mcore.flash",
+                           MCORE_FLASH_SIZE, &error_fatal);
+    memory_region_init_ram(&s->sram, NULL, "mcore.sram",
+                           MCORE_SRAM_SIZE, &error_fatal);
+    memcpy(memory_region_get_ram_ptr(&s->flash), s->flash_image,
+           s->image_size);
+    memory_region_add_subregion(&s->board, 0, &s->flash);
+    memory_region_add_subregion(&s->board, MCORE_SRAM_BASE, &s->sram);
+
+    /* The M-core has no MMU; anything not modelled must leave an address
+     * and PC rather than a plausible-looking zero. */
+    memory_region_init_io(&s->probe, OBJECT(machine), &mcore_probe_ops, s,
+                          "mcore.probe", 0x100000000ULL);
+    memory_region_add_subregion_overlap(&s->board, 0, &s->probe, -1000);
+
+    /* First two peripherals touched by the a1330 reset path. */
+    mcore_add_regfile(s, 0x400F2000, 0x1000, "mcore.clk");
+    mcore_add_regfile(s, 0x400F3000, 0x1000, "mcore.cmd");
+
+    object_initialize_child(OBJECT(machine), "armv7m", &s->armv7m,
+                            TYPE_ARMV7M);
+    dev = DEVICE(&s->armv7m);
+    if (!machine->cpu_type) {
+        machine->cpu_type = ARM_CPU_TYPE_NAME("cortex-m4");
+    }
+    qdev_prop_set_string(dev, "cpu-type", machine->cpu_type);
+    qdev_prop_set_uint32(dev, "num-irq", 96);
+    qdev_prop_set_bit(dev, "enable-bitband", true);
+    qdev_prop_set_bit(dev, "vfp", true);
+    object_property_set_link(OBJECT(&s->armv7m), "memory",
+                             OBJECT(&s->board), &error_fatal);
+
+    clk = clock_new(OBJECT(machine), "mcore.cpuclk");
+    clock_set_hz(clk, 100000000);
+    qdev_connect_clock_in(dev, "cpuclk", clk);
+
+    /*
+     * Reset-handler ordering in QEMU's resettable container is not stable
+     * across versions.  Register the state fixup on both sides of the CPU
+     * realize so whichever pass runs last has the final say; the call is
+     * idempotent and no-ops until armv7m.cpu exists.
+     */
+    qemu_register_reset(nikon_d850_mcore_reset, s);
+    sysbus_realize(SYS_BUS_DEVICE(dev), &error_fatal);
+
+    /* BE8 fixup: shadow the LE NVIC's VTOR/CPACR with a big-endian window. */
+    memory_region_init_io(&s->scb, OBJECT(machine), &mcore_scb_ops, s,
+                          "mcore.scb", 0x100);
+    memory_region_add_subregion_overlap(&s->armv7m.container, 0xE000ED00,
+                                        &s->scb, 1);
+
+    qemu_register_reset(nikon_d850_mcore_reset, s);
+    nikon_d850_mcore_reset(s);
+}
+
+static bool nikon_d850_mcore_get_strict(Object *obj, Error **errp)
+{
+    return NIKON_D850_MCORE(obj)->strict;
+}
+
+static void nikon_d850_mcore_set_strict(Object *obj, bool value, Error **errp)
+{
+    NIKON_D850_MCORE(obj)->strict = value;
+}
+
+static void nikon_d850_mcore_class_init(ObjectClass *oc, const void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    mc->desc = "Nikon D850 M-core (Firmware A / a1330) validation prototype";
+    mc->init = nikon_d850_mcore_init;
+    mc->max_cpus = 1;
+    mc->default_cpu_type = ARM_CPU_TYPE_NAME("cortex-m4");
+
+    object_class_property_add_bool(oc, "strict",
+                                   nikon_d850_mcore_get_strict,
+                                   nikon_d850_mcore_set_strict);
+    object_class_property_set_description(oc, "strict",
+        "Stop on the first unmodelled access (the access is still logged)");
+}
+
+static const TypeInfo nikon_d850_mcore_info = {
+    .name = TYPE_NIKON_D850_MCORE_MACHINE,
+    .parent = TYPE_MACHINE,
+    .instance_size = sizeof(NikonD850McoreState),
+    .class_init = nikon_d850_mcore_class_init,
+    .interfaces = arm_machine_interfaces,
+};
+
+static void nikon_d850_mcore_register_types(void)
+{
+    type_register_static(&nikon_d850_mcore_info);
+}
+
+type_init(nikon_d850_mcore_register_types);

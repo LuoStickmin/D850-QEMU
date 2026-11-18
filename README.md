@@ -159,6 +159,13 @@ boot ROM 的页表；它只证明“init 自身没有缺页表逻辑”，并把
 机器**诊断优先**：未建模访问记 `d850-probe:`（PC/地址/宽度/方向），
 `strict=on` 时记 `d850-strict:` 后停止。不会先填一堆零把 boot 骗过去。
 
+## M-core（Firmware A / a1330）旁路
+
+`-M nikon-d850-mcore` 是独立的 M-core 实验机器：输入 a1330（Firmware A），
+能跑过 reset、时钟/命令块和 UART 初始化，最后停在 idle/loop。它不改变
+上面 A-core 的 D0–D3 结论；BE8 向量表/NVIC 的夹具与实测见
+[docs/mcore.md](docs/mcore.md)。
+
 ## 目录
 
 ```text
@@ -173,6 +180,7 @@ boot ROM 的页表；它只证明“init 自身没有缺页表逻辑”，并把
 │   ├── status.md               当前状态、三次实验的完整命令与结果
 │   ├── boot-chain.md           字节级启动链分析（向量表/reset/init/交接）
 │   ├── bootrom.md              boot ROM 尺寸估计、抓取范围与“只拿到 ROM”能走多远
+│   ├── mcore.md                M-core（Firmware A/a1330）最小机器与实测
 │   └── build.md                构建与运行说明
 ├── evidence/                   运行证据（Markdown + LPAE 夹具二进制）
 ├── README.md / README.en.md
