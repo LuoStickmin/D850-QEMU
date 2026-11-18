@@ -4,6 +4,8 @@ A QEMU validation prototype for Nikon D850 (EXPEED 5 / E5) firmware research:
 one `nikon-d850` board overlay, a runner/evidence tool, and boot-chain
 conclusions derived from the real bytes of `b1330_131.bin`.
 
+> M-core (Firmware A / a1330) track: [English](docs/mcore.en.md) | [中文](docs/mcore.md)
+
 > This repository contains **no full Nikon firmware, key or modified image**; the docs quote only short instruction words/addresses needed for explanation.
 > Supply your own decrypted firmware; the tools only read it.
 >

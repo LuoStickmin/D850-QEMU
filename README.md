@@ -2,6 +2,8 @@
 
 > [English](README.en.md)
 
+> M-core (Firmware A / a1330) track: [English](docs/mcore.en.md) | [中文](docs/mcore.md)
+
 Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `nikon-d850`
 板级 overlay、一个运行/取证工具，以及从 `b1330_131.bin` 真实字节得出的启动链结论。
 
@@ -164,7 +166,7 @@ boot ROM 的页表；它只证明“init 自身没有缺页表逻辑”，并把
 `-M nikon-d850-mcore` 是独立的 M-core 实验机器：输入 a1330（Firmware A），
 能跑过 reset、时钟/命令块和 UART 初始化，最后停在 idle/loop。它不改变
 上面 A-core 的 D0–D3 结论；BE8 向量表/NVIC 的夹具与实测见
-[docs/mcore.md](docs/mcore.md)。
+[docs/mcore.md](docs/mcore.md)（英文：[docs/mcore.en.md](docs/mcore.en.md)）。
 
 ## 目录
 
@@ -181,6 +183,7 @@ boot ROM 的页表；它只证明“init 自身没有缺页表逻辑”，并把
 │   ├── boot-chain.md           字节级启动链分析（向量表/reset/init/交接）
 │   ├── bootrom.md              boot ROM 尺寸估计、抓取范围与“只拿到 ROM”能走多远
 │   ├── mcore.md                M-core（Firmware A/a1330）最小机器与实测
+│   ├── mcore.en.md             M-core prototype (English)
 │   └── build.md                构建与运行说明
 ├── evidence/                   运行证据（Markdown + LPAE 夹具二进制）
 ├── README.md / README.en.md
