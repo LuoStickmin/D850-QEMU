@@ -37,7 +37,7 @@ dump 工具**，可以用测试卡证明“guest RAM → PPM/PNG”这段通了�
 | `PLL_LCD` / `PLL_LCDCFG0` / `PLL_LCD_RESET` | `0x1180BE50` 起 | LCD 时钟/PLL |
 | `LCDCKINV_SEL` / `PLLLCDEXT_SEL` | `0x1180D840` 起 | LCD 时钟选择 |
 | `PADLCD` | `0x1180F2B0` | LCD pad/引脚 |
-| `TFTBACK` / `TFTSERV` / `TFTVD` | `0x1000EA77` 起 | TFT/显示服务 |
+| `TFTBACK` / `@TFTSERV` / `TFTVD` | `0x1000EA78` 起 | TFT/显示服务 |
 | `eglGetDisplay` / `eglQueryDisplayDMP` | `0x11809A88` 起 | EGL/DMP 图形栈 |
 | `APPMENU` | `0x1025367B` | 应用菜单 |
 | `ID_SW1_MENU` | `0x10450004` | 按键/菜单 ID |
@@ -46,6 +46,28 @@ dump 工具**，可以用测试卡证明“guest RAM → PPM/PNG”这段通了�
 结论：**镜像内确实有显示、EGL/DMP、HDMI、TFT、菜单相关代码或符号**。但字符串
 只证明“存在”，不证明当前执行路径能到达；这些字符串也没有被简单的绝对地址
 xref 直接引用（更像符号/时钟表），所以还不能从字符串直接反推寄存器基址。
+
+### 3.1 地址速查（按 `payload-base=0x10000000`）
+
+| 项 | 地址 | 类型/置信度 |
+| --- | --- | --- |
+| `TFTBACK` 候选函数 | **`0x1000EA56`** | Thumb code，中：紧邻 `TFTBACK`；读 `0x0840ABB8+4` 的半字表，乘/移位/钳到 0xFF，像背光/亮度曲线 |
+| `TFTSERV` 候选 dispatcher | **`0x1000EDDA`** | Thumb code，中低：紧邻 `@TFTSERV`；按命令 `0..0x66` 分支并调用 `0x10035678` |
+| `APPMENU` 候选 handler | **`0x1025368C`** | Thumb code，低中：紧邻 `@APPMENU`；比较 r0=5/6，调用 `0x10235AE4` |
+| `PLL_LCD`/`PLL_LCDCFG0`/`PLL_LCD_RESET` 表 | `0x1180BE40` 起 | data/clock table，高 |
+| `PLL_HDMI*`/`HDMI_*`/`GPU_CLK_*` 表 | `0x1180C2E0` 起 | data/clock table，高 |
+| `eglGetDisplay`/`eglQueryDisplayDMP` 符号串 | `0x11809A88` 起 | data/string，高；代码未定位 |
+| `CMoviePlayApplicationService_ChangeDisplayConfiguration` | `0x1043B850` 起 | data/string，高 |
+| `ID_SW1_MENU` 菜单 ID 表 | `0x10450004` 起 | data，高 |
+| 显示 MMIO 寄存器基址 | **未确认** | — |
+| framebuffer 基址/格式 | **未确认** | — |
+
+文件偏移 = 地址 − `0x10000000`（例如 `0x1000EA56` → file `0xEA56`）。
+这些是**镜像虚拟地址**；如果 `payload-base` 改了，整体加同一个偏移。
+
+`TFTBACK`/`TFTSERV`/`APPMENU` 三个函数入口是**候选**，不是符号表确认的：镜像里
+没有 ELF/符号表，ARM/Thumb 混排，绝对地址 xref 为 0。当前只能根据“字符串紧邻
++ 代码形态”给出入口；下一步要用 Ghidra/动态断点确认调用关系。
 
 ## 4. D780 的显示块不能直接套到 D850
 
