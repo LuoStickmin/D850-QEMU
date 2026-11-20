@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.3 — 2026-11-20
+
+Display/GUI boundary and M-core status.
+
+### Added
+
+- `docs/display.md`: current execution ceiling (`0x40028FF8`), static display
+  code evidence (`PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/menu strings), the fact that
+  D780's display blocks have zero hits in `b1330`, and what the host-side LCD
+  dump can and cannot prove.
+- `evidence/lcd-testcard.md` + `evidence/lcd-testcard.png`: a 320×240 ARGB test
+  card proves the RAM→PPM path; it is host-written, not firmware UI.
+- README/status now list the M-core track and the GUI/LCD boundary.
+
+### Noted
+
+- The M-core track (`nikon-d850-mcore`, `docs/mcore.md`/`.en.md`, 2026-11-18)
+  was added after 0.1.2 without a changelog entry; it boots a1330 to idle
+  `0xC05E` but has no found console TX or display path.
+
 ## 0.1.2 — 2026-11-16
 
 Boot ROM size estimate and acquisition plan.

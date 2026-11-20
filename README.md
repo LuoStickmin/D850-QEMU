@@ -27,7 +27,7 @@ Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `niko
 - 不提供签名、重打包或升级容器处理；
 - 不是自然上电启动：入口、栈、页表夹具都是主机侧辅助，结论按“辅助启动”标注。
 
-## 当前状态（2026-11-16）
+## 当前状态（2026-11-20）
 
 | 项目 | 状态 |
 | --- | --- |
@@ -38,11 +38,18 @@ Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `niko
 | LPAE 页表夹具 `--e5-tables` | ✅ **0 异常**；init 跑完并 `bx ip` 到 `0x40028FF8` |
 | `0x40028FF8` 之后的 boot ROM | ❌ 缺失；handler RAM 全零，PC 从 `0x40028FF8` 滑到 `0x40040000` |
 | CPU 假设 | ✅ LPAE（`mcrr` 写 TTBR）；Cortex-A9 在 `0x1035D45C` undefined |
-| UART / 串口输出 | ❌ 未观测到（`uart=0B`） |
+| M-core `nikon-d850-mcore`（a1330） | ✅ 跑过 reset/时钟/命令块，停在 idle `0xC05E`；无异常，未找到 console TX |
+| 显示代码（静态） | ✅ `b1330` 内有 `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/菜单字符串 |
+| GUI / LCD | ❌ 固件未执行到显示初始化、未写 framebuffer；QEMU 只有 host-side PPM dump（测试卡见 [docs/display.md](docs/display.md)） |
+| UART / 串口输出 | ❌ A-core 未观测到（`uart=0B`）；M-core 也未找到 TX 路径 |
 | 真机验证 | ❌ 本原型不产生可刷写镜像，也没有实机记录 |
 
-一句话：**D850 的镜像内 init 已经能在 QEMU 里完整跑完；缺的是 `0x40000000`
-区的 boot ROM 代码和三个服务函数，不在 `b1330` 镜像里。**
+显示/EGL/TFT/菜单字符串只能证明代码在镜像里；当前运行到 `0x40028FF8` 为止，
+**没有观测到任何 LCD/GPU/HDMI MMIO**，所以还没有固件 GUI 或固件画面。M-core
+能跑到 idle，但 GUI 渲染仍在 A-core 侧，且 M-core 的 console/显示路径也还没定位。
+
+一句话：**A-core 的镜像内 init 已经能在 QEMU 里完整跑完，M-core 能跑到 idle；
+缺的仍是 `0x40000000` 区的 boot ROM/stage-2，以及显示/输入/GPU 模型。**
 
 细节：[docs/status.md](docs/status.md)、[docs/boot-chain.md](docs/boot-chain.md)；
 原始运行证据在 [evidence/](evidence/README.md)。
@@ -184,6 +191,7 @@ boot ROM 的页表；它只证明“init 自身没有缺页表逻辑”，并把
 │   ├── bootrom.md              boot ROM 尺寸估计、抓取范围与“只拿到 ROM”能走多远
 │   ├── mcore.md                M-core（Firmware A/a1330）最小机器与实测
 │   ├── mcore.en.md             M-core prototype (English)
+│   ├── display.md              GUI/LCD 现状：执行天花板、静态显示代码、测试卡
 │   └── build.md                构建与运行说明
 ├── evidence/                   运行证据（Markdown + LPAE 夹具二进制）
 ├── README.md / README.en.md

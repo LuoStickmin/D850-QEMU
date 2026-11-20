@@ -7,6 +7,9 @@ SHA-256 `97E1DA12A91C9B08E7857C38A01090E770B7309407DE9A8E9BED2D5A81204003`。
 运行环境：WSL Ubuntu、gcc 15.2、QEMU 11.1.0（本仓库 overlay 增量编译），
 `-cpu cortex-a15`、`-m 128M`、`-smp 1`，除非另注。
 
+> M-core（a1330）轨道见 [mcore.md](mcore.md)；GUI/LCD 现状与主机侧测试卡见
+> [display.md](display.md)。
+
 ## 1. 结论速览
 
 | 实验 | 入口 | 夹具 | 异常 | 终点 |

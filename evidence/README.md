@@ -9,6 +9,7 @@
 | [d850-init-no-fixture.md](d850-init-no-fixture.md) | 辅助入口 `0x1035CE30`，无页表夹具 | MMU 打开后 prefetch abort；表遍历读 `0x40000000`/`0x40001000` size=8 |
 | [d850-init-lpae.md](d850-init-lpae.md) | 同一入口 + `--e5-tables` | **0 异常**；init 跑完并 `bx ip` 到 `0x40028FF8` |
 | [d850-cpu-a9.md](d850-cpu-a9.md) | `-cpu cortex-a9` 对照 | `mcrr`（TTBR1）undefined；证明走 LPAE |
+| [lcd-testcard.md](lcd-testcard.md) | 主机写入 320×240 ARGB 测试卡 + LCD dump | 管线通；**不是固件画面** |
 
 `lpae-table.bin` 是 `--e5-tables` 写入的 8 KiB 夹具（两张 4 项 LPAE level-1 表），
 由 `tools/run.py`/机器模型生成，用于让缺失的 boot ROM 页表不再阻断翻译；

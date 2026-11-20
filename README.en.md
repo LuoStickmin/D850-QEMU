@@ -29,7 +29,7 @@ Out of scope: CMOS/ISP/storage/UI emulation, repacking, signatures, upgrade
 containers, and any claim of natural power-on. Entry, stack and page tables are
 host-assisted and labelled as such.
 
-## Status (2026-11-16)
+## Status (2026-11-20)
 
 | Item | Status |
 | --- | --- |
@@ -40,12 +40,20 @@ host-assisted and labelled as such.
 | LPAE fixture `--e5-tables` | **0 exceptions**; init completes and `bx ip` to `0x40028FF8` |
 | Boot ROM at `0x40028FF8` | missing; handler RAM is zero, PC slides to `0x40040000` |
 | CPU | LPAE (`mcrr` TTBR writes); Cortex-A9 faults at `0x1035D45C` |
-| UART output | none observed (`uart=0B`) |
+| M-core `nikon-d850-mcore` (a1330) | boots through reset/clock/command blocks to idle `0xC05E`; no exception, no console TX found |
+| Display code (static) | `b1330` contains `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/menu strings |
+| GUI / LCD | no firmware display init and no framebuffer writes; QEMU has only a host-side PPM dump (test card: [docs/display.md](docs/display.md)) |
+| UART output | none observed for A-core (`uart=0B`); no TX path found for M-core |
 | Real camera test | none; this prototype produces no flashable image |
 
-In one sentence: **the D850 in-image init already runs to completion in QEMU;
-the missing piece is the boot ROM code and service functions in the
-`0x40000000` bank, which are not part of `b1330`.**
+The display strings prove the code exists in the image, but execution stops at
+`0x40028FF8` and **no LCD/GPU/HDMI MMIO has been observed**, so there is no
+firmware GUI or firmware-rendered frame yet. M-core reaches idle, but GUI rendering is still on the A-core side and its
+console/display path is also unlocated.
+
+In one sentence: **the A-core in-image init already runs to completion and
+M-core reaches idle; what is still missing is the `0x40000000` boot ROM/stage-2
+and the display/input/GPU models.**
 
 ## Quick start
 
