@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.9 — 2026-11-23
+
+Unmodelled MMIO coverage snapshot.
+
+- stage-2 path: 34 unique addresses / 43 accesses.
+- real-reset path: 42 unique addresses / 47 accesses.
+- union: 76 unique addresses, concentrated in `0x30001000..0x3000108C` (36)
+  and `0xC0111400..0xC01118FF` (24); about 7 device blocks remain.
+- No `0x83DFE000` framebuffer write yet.
+
 ## 0.1.8 — 2026-11-22
 
 CPU-model and cp1 probes.
