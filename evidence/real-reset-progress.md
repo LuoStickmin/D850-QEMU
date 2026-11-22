@@ -66,3 +66,18 @@ PC: 0x1037CBA8 -> 0x1037CBB0 -> ... -> 0x1037E9xx / 0x1037CC88
 - 当前是大量 host stub（timer/status/MIDR），不是自然上电。
 - 0x54xxxxxx 全部返回 `0xffffffff` 只满足轮询，不代表显示控制器已建模。
 - 还没有任何固件 framebuffer 写入证据；现有 preview PNG 有 mock，不是固件渲染。
+
+## 7. 2026-11-22 后续：peer stub 与 stage-2 的 VFP 阻塞
+
+- 映射 `0x800E8000` 的 peer 页，`0x800E845C/60` 读返回 1 后，reset 过了
+  `0x1037CC88` 的握手，继续写 `0x51200010/14/18`，并在 `0x1037F34C`
+  结束/等待；仍未调用 `0x40028FF8`。
+- host-assisted stage-2 修正后，`0x4000094C` 的 Thumb `bl 0x400034B8` 实际执行成功，
+  返回 `0x4000095A`，说明前一个“Thumb 指针”问题不存在；真正的 undef 在
+  `0x10235618` 的 `mcrr2 p1,#0,r2,r4,c0`（VFP 双寄存器传送）。
+- QEMU Cortex-A15 不支持/未使能这条指令。把 `file 0x235618` 的两个 Thumb 字节
+  改成 NOP 后，能继续到 `0x10205150 -> 0x10235622 -> 0x101fc7a8`，随后
+  data abort/undef（`0x10020010`）。
+- 结论：GUI 之前还有两类真实阻塞：QEMU 的 VFP `mcrr2` 支持，以及后续
+  framebuffer/服务初始化；不是单纯入口地址问题。下一步优先实现该 VFP
+  指令（或精确 patch），再映射 `0x83dfe000` surface 做 dump。

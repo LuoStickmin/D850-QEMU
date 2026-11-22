@@ -95,6 +95,8 @@ typedef struct NikonD850MachineState {
     MemoryRegion bootarg;       /* 0x400E8450 boot-argument page           */
     MemoryRegion boottimer;     /* free-running counter for reset delays    */
     MemoryRegion bootstatus;    /* status bits for reset poll loops          */
+    MemoryRegion bootpeer;      /* boot-ROM/CPU1 handshake page              */
+    MemoryRegion bootstatus2;   /* 0x51100000 status/ack page               */
 
     CharFrontend chr;
 
@@ -318,6 +320,35 @@ static void d850_bootstatus_write(void *opaque, hwaddr addr, uint64_t value,
 static const MemoryRegionOps d850_bootstatus_ops = {
     .read = d850_bootstatus_read,
     .write = d850_bootstatus_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid.min_access_size = 1,
+    .valid.max_access_size = 4,
+    .impl.min_access_size = 1,
+    .impl.max_access_size = 4,
+};
+
+/*
+ * The stock reset writes zero to 0x800E845C/0x800E8460, then waits for a
+ * peer (boot ROM or the second core) to publish non-zero values.  This page
+ * answers the read side with 1 and ignores writes, so the handshake completes
+ * without claiming to model the peer.
+ */
+static uint64_t d850_bootpeer_read(void *opaque, hwaddr addr, unsigned size)
+{
+    if (addr == 0x45c || addr == 0x460) {
+        return 1;
+    }
+    return 0;
+}
+
+static void d850_bootpeer_write(void *opaque, hwaddr addr, uint64_t value,
+                                unsigned size)
+{
+}
+
+static const MemoryRegionOps d850_bootpeer_ops = {
+    .read = d850_bootpeer_read,
+    .write = d850_bootpeer_write,
     .endianness = DEVICE_LITTLE_ENDIAN,
     .valid.min_access_size = 1,
     .valid.max_access_size = 4,
@@ -1787,6 +1818,16 @@ static void nikon_d850_init(MachineState *machine)
                               D850_BOOT_STATUS_SIZE);
         memory_region_add_subregion(sysmem, D850_BOOT_STATUS_BASE,
                                     &s->bootstatus);
+        memory_region_init_io(&s->bootpeer, OBJECT(s), &d850_bootpeer_ops,
+                              s, "nikon-d850.bootpeer",
+                              D850_BOOT_PEER_SIZE);
+        memory_region_add_subregion(sysmem, D850_BOOT_PEER_BASE,
+                                    &s->bootpeer);
+        memory_region_init_io(&s->bootstatus2, OBJECT(s), &d850_bootstatus_ops,
+                              s, "nikon-d850.bootstatus2",
+                              D850_BOOT_STATUS2_SIZE);
+        memory_region_add_subregion(sysmem, D850_BOOT_STATUS2_BASE,
+                                    &s->bootstatus2);
 
         if (s->bootrom_tables) {
             uint64_t *t;

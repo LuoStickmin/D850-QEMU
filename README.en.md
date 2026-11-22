@@ -40,7 +40,7 @@ host-assisted and labelled as such.
 | LPAE fixture `--e5-tables` | **0 exceptions**; init completes and `bx ip` to `0x40028FF8` |
 | Boot ROM at `0x40028FF8` | missing; handler RAM is zero, PC slides to `0x40040000` |
 | Reconstructed bootrom | Corrected mapping: `0x40028FF8` is an ARM entry; stage-2 writes `0xC0111450/...`, then a Thumb pointer at `0x400034B8` undefines |
-| Real-reset run | MIDR override passes the gate and writes display/clock blocks (`0x55xxxxxx`), then waits at the `0x800E845C` peer handshake; no framebuffer pixels yet |
+| Real-reset run | MIDR + peer stub pass `0x1037CC88` and write `0x512000xx`; `0x40028FF8` is still not called, and there are no framebuffer pixels |
 | CPU | LPAE (`mcrr` TTBR writes); Cortex-A9 faults at `0x1035D45C` |
 | M-core `nikon-d850-mcore` (a1330) | boots through reset/clock/command blocks to idle `0xC05E`; no exception, no console TX found |
 | Display code (static) | `b1330` contains `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/menu strings |

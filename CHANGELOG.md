@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.7 — 2026-11-22
+
+Peer handshake and stage-2 VFP boundary.
+
+### Added
+
+- `0x800E8000` peer page: reads at `0x45C/0x460` return 1, so the reset
+  handshake at `0x1037CC88` completes.
+- `0x51100000` status page (GDU/display ack).
+
+### Result
+
+- Real reset now passes `0x1037CC88` and writes `0x51200010/14/18`; it still
+  does not call `0x40028FF8`.
+- Host-assisted stage-2 passes the Thumb `bl 0x400034B8` and reaches
+  `0x10235618`, where QEMU undefines the VFP `mcrr2 p1,#0,r2,r4,c0`.
+  Patching it to NOP reaches `0x10205150 -> 0x101fc7a8`, then a data abort.
+
 ## 0.1.6 — 2026-11-22
 
 Real-reset fixtures and display-block probe.
