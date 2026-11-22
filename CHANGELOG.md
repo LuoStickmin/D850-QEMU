@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.6 — 2026-11-22
+
+Real-reset fixtures and display-block probe.
+
+### Added
+
+- Boot RAM at `0x40708000` (64 KiB) and boot-arg page at `0x400E8000` for the
+  real `0x1037CCC0` table-page setup.
+- Diagnostic free-running counter at `0x51340008` and all-ones GDU/display
+  status at `0x54000000..0x571FFFFF`.
+- Assisted entry enables VFP/CPACR; `-cpu ...,midr=0x410FC0F4` passes the
+  `0x1037CC0C` gate.
+- `evidence/real-reset-progress.md`.
+
+### Result
+
+- Real reset now runs past MIDR and writes display/clock registers
+  (`0x5502xxxx`/`0x5504xxxx`/`0x5506xxxx`).
+- It stops at `0x1037CC88` waiting for `[0x800E845C]/[0x800E8460]`, i.e. the
+  boot-ROM/peer handshake; no framebuffer pixels yet.
+
 ## 0.1.5 — 2026-11-22
 
 Corrected boot ROM mapping and entry inference (Fenestra live delta).

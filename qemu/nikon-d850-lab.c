@@ -93,6 +93,8 @@ typedef struct NikonD850MachineState {
     MemoryRegion bootrom;       /* reconstructed 0x40000000 window         */
     MemoryRegion boottbl;       /* LPAE tables for the reconstructed ROM   */
     MemoryRegion bootarg;       /* 0x400E8450 boot-argument page           */
+    MemoryRegion boottimer;     /* free-running counter for reset delays    */
+    MemoryRegion bootstatus;    /* status bits for reset poll loops          */
 
     CharFrontend chr;
 
@@ -103,6 +105,7 @@ typedef struct NikonD850MachineState {
     bool bootrom_thumb;         /* set bit0 of the stage-2 hand-off literal */
     uint64_t bootrom_tables_base; /* default 0x40708000                     */
     uint64_t bootrom_arg;       /* value to place at [0x400E8450]          */
+    uint32_t boottimer_count;   /* diagnostic free-running counter         */
     char *boot;                 /* "entry" (M0) or "stub" (M1)             */
     uint64_t entry;             /* UINT64_MAX means "use the inferred one" */
     uint64_t payload_base;      /* where the payload image is loaded        */
@@ -260,6 +263,66 @@ static const MemoryRegionOps d850_probe_ops = {
     .valid.max_access_size = 8,
     .impl.min_access_size = 1,
     .impl.max_access_size = 8,
+};
+
+/*
+ * Diagnostic free-running counter for the reset delay loops.  The real reset
+ * polls [0x51340008] until it advances by >0x30 then >0x18; returning a
+ * monotonically increasing value lets those loops terminate without claiming
+ * to model the real timer.
+ */
+static uint64_t d850_boottimer_read(void *opaque, hwaddr addr, unsigned size)
+{
+    NikonD850MachineState *s = opaque;
+
+    if (addr == 8 && size == 4) {
+        s->boottimer_count += 0x40;
+        return s->boottimer_count;
+    }
+    return 0;
+}
+
+static void d850_boottimer_write(void *opaque, hwaddr addr, uint64_t value,
+                                 unsigned size)
+{
+}
+
+static const MemoryRegionOps d850_boottimer_ops = {
+    .read = d850_boottimer_read,
+    .write = d850_boottimer_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid.min_access_size = 1,
+    .valid.max_access_size = 4,
+    .impl.min_access_size = 1,
+    .impl.max_access_size = 4,
+};
+
+/*
+ * Status bits for the reset path's poll loops.  The stock code waits for
+ * bit31 at 0x5400101c/20/24/2c/30/34 before continuing; the real device sets
+ * these when its block is ready.  Returning 0x80000000 only satisfies the
+ * handshake, it does not model the block.
+ */
+static uint64_t d850_bootstatus_read(void *opaque, hwaddr addr, unsigned size)
+{
+    /* GDU/display status: the existing D850 work returns all-ones so
+     * ready/DMA/VSync polls terminate.  This absorbs 0x54xxxxxx reads. */
+    return 0xffffffffu;
+}
+
+static void d850_bootstatus_write(void *opaque, hwaddr addr, uint64_t value,
+                                  unsigned size)
+{
+}
+
+static const MemoryRegionOps d850_bootstatus_ops = {
+    .read = d850_bootstatus_read,
+    .write = d850_bootstatus_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid.min_access_size = 1,
+    .valid.max_access_size = 4,
+    .impl.min_access_size = 1,
+    .impl.max_access_size = 4,
 };
 
 /* ------------------------------------------------------------------ */
@@ -1697,25 +1760,38 @@ static void nikon_d850_init(MachineState *machine)
         d850_load_bootrom(s, s->bootrom_path, D850_BOOTROM_BASE,
                           D850_BOOTROM_SIZE);
 
+        if (s->bootrom_tables && (s->bootrom_tables_base & 0xfff)) {
+            error_report("nikon-d850: boot-tables-base 0x%08" PRIx64
+                         " must be 4 KiB aligned",
+                         s->bootrom_tables_base);
+            exit(1);
+        }
+
+        /* 0x1037CCC0 copies 0x9000 bytes here and builds the LPAE root;
+         * map a clean 64 KiB page so the real reset can do it itself. */
+        memory_region_init_ram(&s->boottbl, NULL, "nikon-d850.bootram",
+                               D850_BOOTRAM_SIZE, &error_fatal);
+        memory_region_add_subregion(sysmem, s->bootrom_tables_base,
+                                    &s->boottbl);
+        memory_region_init_ram(&s->bootarg, NULL, "nikon-d850.bootarg",
+                               D850_BOOTARG_SIZE, &error_fatal);
+        memory_region_add_subregion(sysmem, D850_BOOTARG_BASE,
+                                    &s->bootarg);
+        memory_region_init_io(&s->boottimer, OBJECT(s), &d850_boottimer_ops,
+                              s, "nikon-d850.boottimer",
+                              D850_BOOT_TIMER_SIZE);
+        memory_region_add_subregion(sysmem, D850_BOOT_TIMER_BASE,
+                                    &s->boottimer);
+        memory_region_init_io(&s->bootstatus, OBJECT(s), &d850_bootstatus_ops,
+                              s, "nikon-d850.bootstatus",
+                              D850_BOOT_STATUS_SIZE);
+        memory_region_add_subregion(sysmem, D850_BOOT_STATUS_BASE,
+                                    &s->bootstatus);
+
         if (s->bootrom_tables) {
             uint64_t *t;
             uint8_t *arg;
             unsigned n;
-
-            if (s->bootrom_tables_base & 0xfff) {
-                error_report("nikon-d850: boot-tables-base 0x%08" PRIx64
-                             " must be 4 KiB aligned",
-                             s->bootrom_tables_base);
-                exit(1);
-            }
-            memory_region_init_ram(&s->boottbl, NULL, "nikon-d850.boottbl",
-                                   D850_BOOT_TABLES_SIZE, &error_fatal);
-            memory_region_add_subregion(sysmem, s->bootrom_tables_base,
-                                        &s->boottbl);
-            memory_region_init_ram(&s->bootarg, NULL, "nikon-d850.bootarg",
-                                   D850_BOOTARG_SIZE, &error_fatal);
-            memory_region_add_subregion(sysmem, D850_BOOTARG_BASE,
-                                        &s->bootarg);
 
             t = (uint64_t *)memory_region_get_ram_ptr(&s->boottbl);
             for (n = 0; n < 4; n++) {
@@ -1729,6 +1805,10 @@ static void nikon_d850_init(MachineState *machine)
                         ", [0x%" PRIx64 "] = 0x%08" PRIx32,
                         s->bootrom_tables_base, (uint64_t)D850_BOOT_SCRATCH_REG,
                         (uint32_t)s->bootrom_arg);
+        } else {
+            info_report("nikon-d850: boot RAM at 0x%08" PRIx64
+                        " (%" PRIu64 " bytes), real reset builds the tables",
+                        s->bootrom_tables_base, (uint64_t)D850_BOOTRAM_SIZE);
         }
     }
 
