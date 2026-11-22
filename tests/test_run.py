@@ -16,7 +16,7 @@ def args(**overrides) -> argparse.Namespace:
                 flash_size=0x2000000, aux2_base=0x40000000,
                 aux2_size=0, e5_tables=False, bootrom=None,
                 boot_tables=False, boot_tables_base=0x40708000,
-                boot_arg=0x00708000, strict=False)
+                boot_arg=0x00708000, bootrom_thumb=False, strict=False)
     base.update(overrides)
     return argparse.Namespace(**base)
 

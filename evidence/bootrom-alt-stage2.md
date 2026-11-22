@@ -1,5 +1,9 @@
 # ALT 重建 + QEMU `--bootrom` 实跑（2026-11-22）
 
+> **已修正/已过时：** 本文使用的文件偏移高了 `0x20000`（应按 Fenestra live
+> delta 用 `0x178E290`/`0x17BD380`）。修正后的结果见
+> [bootrom-correct-stage2.md](bootrom-correct-stage2.md)；本文保留作对照。
+
 > 这是“重建内容能执行”的第一次实跑，不是“stage-2 已跑通”。结论是：
 > ALT 映射的代码确实在 `0x40028FF8` 开始执行，但入口上下文/重定位仍不对，
 > 随后 data abort。
@@ -23,7 +27,7 @@
 python3 tools/run.py \
   --qemu /path/to/qemu-system-arm \
   --payload "$FW/b1330_131.bin" --init \
-  --bootrom runs/bootrom_alt.bin --boot-tables \
+  --bootrom runs/bootrom_alt.bin --boot-tables --bootrom-thumb \
   --out runs/alt-stage2-thumb --timeout 3 --trace in_asm
 ```
 

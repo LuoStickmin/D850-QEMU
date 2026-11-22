@@ -40,6 +40,9 @@ D850（E5）里至少有两个容易混在一起的东西：
 
 ### 3.2 载荷内部还有一张段表：约 263 KiB
 
+> 源 VA 按 b1330 的 Fenestra 基址 **`0x10020000`** 解释；文件偏移 =
+> VA − `0x10020000`。例如 `0x117AE290` → file `0x178E290`。
+
 `b1330` 的 `0x1035F780` 与 `0x10383400` 各有一组 12 字节记录，关键边界值互相对应，
 像一张“源 → 目标 → 长度”的装载/区域表：
 
@@ -150,17 +153,32 @@ E3（D5100/D7000/D800）的第一级 boot 在物理 `0x000E0000..0x000FFFFF`，�
 4. 记录第一条未建模 MMIO，按 ROM 代码补模型；
 5. 如果 ROM 自己会从 flash 拷贝，再加 `--flash` 或把 `b1330` 放到它期望的位置。
 
-### 7.1 已实现并实跑（2026-11-22）
+### 7.1 已实现并实跑（2026-11-22，修正映射）
 
-`--bootrom`、`--boot-tables`、`--bootrom-thumb` 已加入 `run.py`/机器。ALT 重建
-实跑结果：
+`--bootrom`、`--boot-tables`、`--bootrom-thumb` 已加入 `run.py`/机器。
+Fenestra live delta 把文件偏移钉在 `0x178E290`/`0x17BD380`（不是早先的
+`0x17AE290`/`0x17DD380`，后者高了 `0x20000`）：
 
-- init 0 异常，`bx ip` 进入 `0x40028FF8` 的真 Thumb 代码；
-- 随后 `0x40028FF8 → 0x40028FCC → 0x10020010`，data abort（DFAR `0x2`）；
-- 说明内容重建成功，但 **入口上下文/重定位仍缺**（`0x28FF8` 落在循环中间，
-  `r2=2` 被当成源指针）。
+```text
+0x40000000 <- file 0x178E290 len 0x2F0D8
+0x4002F100 <- file 0x17BD380 len 0x12BA8
+0x40028FF8 <- file 0x17B7288   ; 干净 ARM，不是 Thumb 循环
+```
 
-详见 [evidence/bootrom-alt-stage2.md](../evidence/bootrom-alt-stage2.md)。
+修正后实跑：
+
+- init 0 异常，`bx ip` 进入 `0x40028FF8` 的 **ARM** 代码；
+- stage-2 走到 `0x400290C8 → 0x4000094C`，写
+  `0xC0111450/54/58/5C`、`0xC0111880/84`；
+- 随后 `0x400034B8` 的 Thumb 函数指针在 ARM 状态执行，undefined。
+
+真实 reset（`entry=0x1037CBA8`、`payload-base=0x10020000`）则停在
+`0x1037CC0C` 的 MIDR gate，转到 `0x1037D040` 的 WFI；Cortex-A15 的 MIDR
+不满足 gate。
+
+详见 [evidence/bootrom-correct-stage2.md](../evidence/bootrom-correct-stage2.md)；
+早期 ALT 结果 [evidence/bootrom-alt-stage2.md](../evidence/bootrom-alt-stage2.md)
+保留作偏移错误的对照。
 
 ## 8. 一句话
 

@@ -1958,6 +1958,11 @@ static void nikon_d850_init(MachineState *machine)
              * window so a stray `pop {..., pc}` is visible. */
             cpu->env.uncached_cpsr = ARM_CPU_MODE_SVC | CPSR_I | CPSR_F;
             cpu->env.thumb = 0;
+            /* The real boot ROM enables VFP before the payload; the assisted
+             * entry does not.  The reconstructed stage-2 reaches VFP
+             * instructions early, so enable CP10/CP11 and FPEXC.EN here. */
+            cpu->env.cp15.cpacr_el1 = 0x00F00000;
+            cpu->env.vfp.xregs[ARM_VFP_FPEXC] = 1 << 30;
             cpu->env.regs[13] = D850_RAM_BASE + machine->ram_size - 0x100;
             cpu->env.regs[14] = D850_HALT_TRAMPOLINE;
             cpu->env.regs[0] = 0;
@@ -2012,7 +2017,7 @@ static void nikon_d850_instance_init(Object *obj)
     s->e5_tables = false;
     s->bootrom_path = NULL;
     s->bootrom_tables = false;
-    s->bootrom_thumb = true;
+    s->bootrom_thumb = false;
     s->bootrom_tables_base = D850_BOOT_TABLES_BASE;
     s->bootrom_arg = D850_BOOT_ARG_DEFAULT;
     s->mmu_bringup = false;

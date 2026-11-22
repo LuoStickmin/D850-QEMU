@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.5 — 2026-11-22
+
+Corrected boot ROM mapping and entry inference (Fenestra live delta).
+
+### Fixed
+
+- The reconstructed window was shifted by `0x20000`. Fenestra live reads give
+  `0x40000000 <- file 0x178E290` and `0x4002F100 <- file 0x17BD380`; the hand-off
+  entry `0x40028FF8` is file `0x17B7288` and is **ARM**, not the Thumb loop used
+  by the earlier ALT build.
+- `bootrom-thumb` now defaults off (only for genuinely Thumb windows).
+
+### Added
+
+- VFP/CPACR enable in the assisted entry (the real boot ROM does this).
+- `evidence/bootrom-correct-stage2.md`: corrected stage-2 writes
+  `0xC0111450/54/58/5C` and `0xC0111880/84`, then undefines on a Thumb pointer
+  at `0x400034B8`.
+- Real reset trace: `0x1037CBA8` -> `0x1037CBB0`; `0x1037CC0C` is a MIDR gate
+  that sends Cortex-A15 to WFI at `0x1037D040`.
+
 ## 0.1.4 — 2026-11-22
 
 Reconstructed boot ROM loader and first stage-2 run.

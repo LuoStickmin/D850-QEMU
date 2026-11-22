@@ -37,7 +37,7 @@ Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `niko
 | 镜像内 init `0x1035CE30` | ⚠️ 无页表夹具时：MMU 打开后 prefetch abort；表遍历读 `0x40000000`/`0x40001000`（size=8，LPAE） |
 | LPAE 页表夹具 `--e5-tables` | ✅ **0 异常**；init 跑完并 `bx ip` 到 `0x40028FF8` |
 | `0x40028FF8` 之后的 boot ROM | ❌ 缺失；handler RAM 全零，PC 从 `0x40028FF8` 滑到 `0x40040000` |
-| 重建 bootrom 实跑 | ⚠️ ALT 窗在 `0x40028FF8` 执行真 Thumb，随后 data abort（`DFAR=0x2`）：交接入口/重定位仍缺 |
+| 重建 bootrom 实跑 | ✅ 修正映射后 `0x40028FF8` 是 ARM 入口；stage-2 写 `0xC0111450/...`，随后 Thumb 指针 `0x400034B8` undef |
 | CPU 假设 | ✅ LPAE（`mcrr` 写 TTBR）；Cortex-A9 在 `0x1035D45C` undefined |
 | M-core `nikon-d850-mcore`（a1330） | ✅ 跑过 reset/时钟/命令块，停在 idle `0xC05E`；无异常，未找到 console TX |
 | 显示代码（静态） | ✅ `b1330` 内有 `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/菜单字符串 |

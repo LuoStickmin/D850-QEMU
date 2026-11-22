@@ -124,6 +124,8 @@ def build_machine_opts(args: argparse.Namespace) -> str:
             opts.append("bootrom-tables=on")
             opts.append(f"bootrom-tables-base=0x{args.boot_tables_base:x}")
             opts.append(f"bootrom-arg=0x{args.boot_arg:08x}")
+        if args.bootrom_thumb:
+            opts.append("bootrom-thumb=on")
     if args.strict:
         opts.append("strict=on")
     return ",".join(opts)
@@ -271,6 +273,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         default=0x00708000,
                         help="value written to [0x400E8450] for --boot-tables "
                              "(default 0x00708000)")
+    parser.add_argument("--bootrom-thumb", action="store_true",
+                        help="set bit0 of the 0x40028FF8 hand-off literal for a "
+                             "Thumb stage-2 window (default off; the corrected "
+                             "0x17B7288 entry is ARM)")
     parser.add_argument("--trace", action="append", default=[],
                         help="extra -d item, e.g. --trace in_asm (repeatable)")
     parser.add_argument("--strict", action="store_true",
