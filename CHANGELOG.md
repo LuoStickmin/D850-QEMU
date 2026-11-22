@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.0 — 2026-11-23
+
+Worklist MMIO modeling: stage-2 path reaches zero unmodelled accesses.
+
+### Added
+
+- RAM-backed `0x30001000` and `0xC0110000` register/tables blocks.
+- Boot RAM moved to `0x40700000..0x4070FFFF`; LPAE tables still at
+  `0x40708000`.
+- Bootrom window expanded to 7 MiB (`0x40000000..0x406FFFFF`) so code/data
+  references at `0x400A7xxx` and `0x404Axxxx` are mapped.
+- Low scratch `0x00700000` and clock/PMU `0x2E001000`-style page.
+
+### Result
+
+- `runs/worklist5`: **`mmio_events=0`** on the stage-2 path.
+- A single data abort remains: `0x10204D00` `blx r0` jumps to `0x10224918`
+  (data), DFAR=`0x1022494D`. This is a function-pointer/context problem, not
+  an unmodelled MMIO.
+
 ## 0.1.9 — 2026-11-23
 
 Unmodelled MMIO coverage snapshot.

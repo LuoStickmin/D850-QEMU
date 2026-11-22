@@ -56,12 +56,13 @@
  * base from [0x400E8450], so a reconstructed run also needs a boot-argument
  * page and LPAE tables at that base. */
 #define D850_BOOTROM_BASE      0x40000000ULL
-#define D850_BOOTROM_SIZE      0x80000ULL
+#define D850_BOOTROM_SIZE      0x700000ULL
 #define D850_BOOTARG_BASE      0x400E8000ULL
 #define D850_BOOTARG_SIZE      0x1000ULL
 #define D850_BOOTARG_SLOT      0x450ULL
 #define D850_BOOT_TABLES_BASE  0x40708000ULL
 #define D850_BOOT_TABLES_SIZE  0x2000ULL
+#define D850_BOOTRAM_BASE      0x40700000ULL
 #define D850_BOOTRAM_SIZE      0x10000ULL
 #define D850_BOOT_TIMER_BASE   0x51340000ULL
 #define D850_BOOT_TIMER_SIZE   0x1000ULL

@@ -27,6 +27,28 @@
 地址集中在 `0x30001000` 和 `0xC01114xx` 两块。`0x40703xxx` 和
 `0x400A76xx` 更像应扩 RAM/bootrom 窗，而不是新设备。
 
+## 2026-11-23 worklist 执行后
+
+已加入：
+
+- `0x30001000..0x300010FF` RAM-backed 寄存器块；
+- `0xC0110000..0xC0111FFF` RAM-backed 显示/GPU 块；
+- boot RAM 扩到 `0x40700000..0x4070FFFF`（表仍写 `0x40708000`）；
+- bootrom 窗扩到 `0x40000000..0x406FFFFF`（7 MiB，文件仍只 512 KiB）；
+- `0x00700000..0x0070FFFF` 低地址 scratch；
+- `0x2E000000..0x2E001FFF` 时钟/PMU 块。
+
+最新 stage-2 路径（`runs/worklist5`）：
+
+```text
+mmio_events=0
+exceptions: data_abort=1
+```
+
+**当前 stage-2 路径已没有未建模 MMIO 地址。** 仍有一个 data abort：
+`0x10204D00` 的 `blx r0` 跳到 `0x10224918`（数据区），DFAR=`0x1022494D`；
+这是函数指针/参数上下文问题，不是 MMIO。
+
 ## 备注
 
 - 这些数字只覆盖当前两条路径；stage-2 继续往后会新增地址。

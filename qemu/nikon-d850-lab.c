@@ -97,6 +97,10 @@ typedef struct NikonD850MachineState {
     MemoryRegion bootstatus;    /* status bits for reset poll loops          */
     MemoryRegion bootpeer;      /* boot-ROM/CPU1 handshake page              */
     MemoryRegion bootstatus2;   /* 0x51100000 status/ack page               */
+    MemoryRegion reg3000;       /* 0x30001000 register/tables block         */
+    MemoryRegion regc011;       /* 0xC0110000 display/GPU register block    */
+    MemoryRegion lowscratch;    /* 0x00700000 init scratch                  */
+    MemoryRegion reg2e;         /* 0x2E000000 clock/PMU block               */
 
     CharFrontend chr;
 
@@ -1802,12 +1806,12 @@ static void nikon_d850_init(MachineState *machine)
          * map a clean 64 KiB page so the real reset can do it itself. */
         memory_region_init_ram(&s->boottbl, NULL, "nikon-d850.bootram",
                                D850_BOOTRAM_SIZE, &error_fatal);
-        memory_region_add_subregion(sysmem, s->bootrom_tables_base,
+        memory_region_add_subregion(sysmem, D850_BOOTRAM_BASE,
                                     &s->boottbl);
         memory_region_init_ram(&s->bootarg, NULL, "nikon-d850.bootarg",
                                D850_BOOTARG_SIZE, &error_fatal);
-        memory_region_add_subregion(sysmem, D850_BOOTARG_BASE,
-                                    &s->bootarg);
+        memory_region_add_subregion_overlap(sysmem, D850_BOOTARG_BASE,
+                                            &s->bootarg, 1);
         memory_region_init_io(&s->boottimer, OBJECT(s), &d850_boottimer_ops,
                               s, "nikon-d850.boottimer",
                               D850_BOOT_TIMER_SIZE);
@@ -1828,13 +1832,38 @@ static void nikon_d850_init(MachineState *machine)
                               D850_BOOT_STATUS2_SIZE);
         memory_region_add_subregion(sysmem, D850_BOOT_STATUS2_BASE,
                                     &s->bootstatus2);
+        /* RAM-backed register files: read-back the last written value.  This
+         * removes the catch-all probes and keeps the block's table/register
+         * state consistent for later reads. */
+        memory_region_init_ram(&s->reg3000, NULL, "nikon-d850.reg3000",
+                               0x1000, &error_fatal);
+        memory_region_add_subregion(sysmem, 0x30001000, &s->reg3000);
+        memory_region_init_ram(&s->regc011, NULL, "nikon-d850.regc011",
+                               0x2000, &error_fatal);
+        memory_region_add_subregion(sysmem, 0xC0110000, &s->regc011);
+        memory_region_init_ram(&s->lowscratch, NULL, "nikon-d850.lowscratch",
+                               0x10000, &error_fatal);
+        memory_region_add_subregion(sysmem, 0x00700000, &s->lowscratch);
+        memory_region_init_ram(&s->reg2e, NULL, "nikon-d850.reg2e",
+                               0x2000, &error_fatal);
+        memory_region_add_subregion(sysmem, 0x2E000000, &s->reg2e);
 
         if (s->bootrom_tables) {
             uint64_t *t;
             uint8_t *arg;
             unsigned n;
+            uint64_t off = s->bootrom_tables_base - D850_BOOTRAM_BASE;
 
+            if (off + 0x2000 > D850_BOOTRAM_SIZE) {
+                error_report("nikon-d850: boot-tables-base 0x%08" PRIx64
+                             " is outside the 0x%08" PRIx64
+                             " boot RAM window",
+                             s->bootrom_tables_base,
+                             (uint64_t)D850_BOOTRAM_BASE);
+                exit(1);
+            }
             t = (uint64_t *)memory_region_get_ram_ptr(&s->boottbl);
+            t += off / 8;
             for (n = 0; n < 4; n++) {
                 /* LPAE level-1 block: valid, 1 GiB, AF=1, SH=inner, AP=rw */
                 t[n] = ((uint64_t)n << 30) | 0x701;
@@ -1849,7 +1878,8 @@ static void nikon_d850_init(MachineState *machine)
         } else {
             info_report("nikon-d850: boot RAM at 0x%08" PRIx64
                         " (%" PRIu64 " bytes), real reset builds the tables",
-                        s->bootrom_tables_base, (uint64_t)D850_BOOTRAM_SIZE);
+                        (uint64_t)D850_BOOTRAM_BASE,
+                        (uint64_t)D850_BOOTRAM_SIZE);
         }
     }
 
