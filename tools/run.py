@@ -118,6 +118,12 @@ def build_machine_opts(args: argparse.Namespace) -> str:
         opts.append(f"aux2-size=0x{args.aux2_size:x}")
     if args.e5_tables:
         opts.append("e5-tables=on")
+    if args.bootrom:
+        opts.append("bootrom=" + Path(args.bootrom).as_posix())
+        if args.boot_tables:
+            opts.append("bootrom-tables=on")
+            opts.append(f"bootrom-tables-base=0x{args.boot_tables_base:x}")
+            opts.append(f"bootrom-arg=0x{args.boot_arg:08x}")
     if args.strict:
         opts.append("strict=on")
     return ",".join(opts)
@@ -252,6 +258,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="install the LPAE identity fixture at "
                              "0x40000000/0x40001000 and map handler RAM "
                              "(needed to get past the init's MMU enable)")
+    parser.add_argument("--bootrom", type=Path,
+                        help="reconstructed 512 KiB 0x40000000 window to load")
+    parser.add_argument("--boot-tables", action="store_true",
+                        help="with --bootrom: install LPAE tables at "
+                             "--boot-tables-base and preset [0x400E8450]")
+    parser.add_argument("--boot-tables-base", type=lambda s: int(s, 0),
+                        default=0x40708000,
+                        help="LPAE table base for --boot-tables "
+                             "(default 0x40708000)")
+    parser.add_argument("--boot-arg", type=lambda s: int(s, 0),
+                        default=0x00708000,
+                        help="value written to [0x400E8450] for --boot-tables "
+                             "(default 0x00708000)")
     parser.add_argument("--trace", action="append", default=[],
                         help="extra -d item, e.g. --trace in_asm (repeatable)")
     parser.add_argument("--strict", action="store_true",
@@ -272,6 +291,12 @@ def main(argv: list[str] | None = None) -> int:
     payload = Path(args.payload)
     if not payload.is_file():
         print(f"error: payload not found: {payload}", file=sys.stderr)
+        return 2
+    if args.boot_tables and not args.bootrom:
+        print("error: --boot-tables requires --bootrom", file=sys.stderr)
+        return 2
+    if args.bootrom and not Path(args.bootrom).is_file():
+        print(f"error: bootrom not found: {args.bootrom}", file=sys.stderr)
         return 2
     qemu = find_qemu(args.qemu)
     if qemu is None:

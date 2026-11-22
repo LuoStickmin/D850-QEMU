@@ -51,6 +51,25 @@
 #define D850_BOOT_SCRATCH_REG  0x400E8450ULL
 #define D850_BOOT_SCRATCH_END  0x400E845CULL
 
+/* Reconstructed 0x40000000 window.  The in-image loader table describes two
+ * segments that end at 0x40041CA8; the A-core init reads its TTBR/page-table
+ * base from [0x400E8450], so a reconstructed run also needs a boot-argument
+ * page and LPAE tables at that base. */
+#define D850_BOOTROM_BASE      0x40000000ULL
+#define D850_BOOTROM_SIZE      0x80000ULL
+#define D850_BOOTARG_BASE      0x400E8000ULL
+#define D850_BOOTARG_SIZE      0x1000ULL
+#define D850_BOOTARG_SLOT      0x450ULL
+#define D850_BOOT_TABLES_BASE  0x40708000ULL
+#define D850_BOOT_TABLES_SIZE  0x2000ULL
+#define D850_BOOT_ARG_DEFAULT  0x00708000ULL
+
+/* The in-image init loads this literal and does `bx ip`; the reconstructed
+ * stage-2 at 0x40028FF8 is Thumb, so the host-assisted run needs bit0 set
+ * (the real boot ROM would patch the hand-off). */
+#define D850_STAGE2_LITERAL_OFF 0x35D144ULL
+#define D850_STAGE2_TARGET      0x40028FF8ULL
+
 /* RAM window inherited from the EXPEED-4 work.  No D850 evidence pins the
  * DRAM base yet; it is used only to give the assisted entry a stack and a
  * place for the halt trampoline.  Do not read it as a D850 address. */

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.4 — 2026-11-22
+
+Reconstructed boot ROM loader and first stage-2 run.
+
+### Added
+
+- Machine options `bootrom=FILE`, `bootrom-tables=on`,
+  `bootrom-tables-base=`, `bootrom-arg=`, and `bootrom-thumb=on`.
+- `--bootrom` / `--boot-tables` / `--boot-tables-base` / `--boot-arg` in
+  `tools/run.py`.
+- `evidence/bootrom-alt-stage2.md`: ALT window (from `b1330` offsets
+  `0x17AE290` + `0x17DD380`) executes real Thumb code at `0x40028FF8`.
+
+### Result
+
+- init runs with 0 exceptions using `[0x400E8450]=0x00708000` and LPAE tables at
+  `0x40708000`;
+- stage-2 enters `0x40028FF8 -> 0x40028FCC -> 0x10020010`, then data abort
+  (`DFAR=0x2`): the window content is plausible, but the boot-ROM hand-off
+  entry/relocation (and `r2`) is still missing.
+
 ## 0.1.3 — 2026-11-20
 
 Display/GUI boundary and M-core status.

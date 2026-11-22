@@ -144,11 +144,23 @@ E3（D5100/D7000/D800）的第一级 boot 在物理 `0x000E0000..0x000FFFFF`，�
 
 最小改动顺序：
 
-1. 新增 `--rom FILE` / `-machine rom=FILE`，把 dump 装到 `0x40000000`；
-2. 关闭 `--e5-tables`（用真实页表）；
+1. 新增 `--bootrom FILE` / `bootrom=FILE`，把重建窗装到 `0x40000000`；
+2. 关闭 `--e5-tables`（用 `--bootrom-tables` 在 `0x40708000` 建真实页表夹具）；
 3. 先 `entry=0x1035CE30` 验证真实页表/服务，再 `entry=0x1037CBA8` 试真实 reset；
 4. 记录第一条未建模 MMIO，按 ROM 代码补模型；
 5. 如果 ROM 自己会从 flash 拷贝，再加 `--flash` 或把 `b1330` 放到它期望的位置。
+
+### 7.1 已实现并实跑（2026-11-22）
+
+`--bootrom`、`--boot-tables`、`--bootrom-thumb` 已加入 `run.py`/机器。ALT 重建
+实跑结果：
+
+- init 0 异常，`bx ip` 进入 `0x40028FF8` 的真 Thumb 代码；
+- 随后 `0x40028FF8 → 0x40028FCC → 0x10020010`，data abort（DFAR `0x2`）；
+- 说明内容重建成功，但 **入口上下文/重定位仍缺**（`0x28FF8` 落在循环中间，
+  `r2=2` 被当成源指针）。
+
+详见 [evidence/bootrom-alt-stage2.md](../evidence/bootrom-alt-stage2.md)。
 
 ## 8. 一句话
 

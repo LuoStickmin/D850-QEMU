@@ -14,7 +14,9 @@ import run  # noqa: E402
 def args(**overrides) -> argparse.Namespace:
     base = dict(payload_base=0x10000000, entry=0x1037CBA8,
                 flash_size=0x2000000, aux2_base=0x40000000,
-                aux2_size=0, e5_tables=False, strict=False)
+                aux2_size=0, e5_tables=False, bootrom=None,
+                boot_tables=False, boot_tables_base=0x40708000,
+                boot_arg=0x00708000, strict=False)
     base.update(overrides)
     return argparse.Namespace(**base)
 
@@ -47,6 +49,14 @@ class MachineOptsTests(unittest.TestCase):
     def test_e5_table_fixture(self):
         opts = run.build_machine_opts(args(e5_tables=True))
         self.assertIn("e5-tables=on", opts)
+
+    def test_bootrom_fixture(self):
+        opts = run.build_machine_opts(
+            args(bootrom=Path("bootrom_alt.bin"), boot_tables=True))
+        self.assertIn("bootrom=bootrom_alt.bin", opts)
+        self.assertIn("bootrom-tables=on", opts)
+        self.assertIn("bootrom-tables-base=0x40708000", opts)
+        self.assertIn("bootrom-arg=0x00708000", opts)
 
 
 class LogSummaryTests(unittest.TestCase):

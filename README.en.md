@@ -39,6 +39,7 @@ host-assisted and labelled as such.
 | In-image init `0x1035CE30` | without tables: prefetch abort after MMU enable; table walks read `0x40000000`/`0x40001000` (size 8, LPAE) |
 | LPAE fixture `--e5-tables` | **0 exceptions**; init completes and `bx ip` to `0x40028FF8` |
 | Boot ROM at `0x40028FF8` | missing; handler RAM is zero, PC slides to `0x40040000` |
+| Reconstructed bootrom | ALT window executes Thumb at `0x40028FF8`, then data abort (`DFAR=0x2`): hand-off entry/relocation still missing |
 | CPU | LPAE (`mcrr` TTBR writes); Cortex-A9 faults at `0x1035D45C` |
 | M-core `nikon-d850-mcore` (a1330) | boots through reset/clock/command blocks to idle `0xC05E`; no exception, no console TX found |
 | Display code (static) | `b1330` contains `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/menu strings |

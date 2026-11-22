@@ -90,11 +90,19 @@ typedef struct NikonD850MachineState {
     MemoryRegion probe;         /* catch-all diagnostic window             */
     MemoryRegion vbr;           /* virtual 0x40000000 boot-ROM window      */
     MemoryRegion uart;          /* candidate byte-register serial block    */
+    MemoryRegion bootrom;       /* reconstructed 0x40000000 window         */
+    MemoryRegion boottbl;       /* LPAE tables for the reconstructed ROM   */
+    MemoryRegion bootarg;       /* 0x400E8450 boot-argument page           */
 
     CharFrontend chr;
 
     char *payload;
     char *flash_path;
+    char *bootrom_path;         /* optional reconstructed 0x40000000 image */
+    bool bootrom_tables;        /* install LPAE tables for bootrom_path     */
+    bool bootrom_thumb;         /* set bit0 of the stage-2 hand-off literal */
+    uint64_t bootrom_tables_base; /* default 0x40708000                     */
+    uint64_t bootrom_arg;       /* value to place at [0x400E8450]          */
     char *boot;                 /* "entry" (M0) or "stub" (M1)             */
     uint64_t entry;             /* UINT64_MAX means "use the inferred one" */
     uint64_t payload_base;      /* where the payload image is loaded        */
@@ -558,6 +566,21 @@ static void nikon_d850_set_payload(Object *obj, const char *value, Error **errp)
     s->payload = g_strdup(value);
 }
 
+static char *nikon_d850_get_bootrom(Object *obj, Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+
+    return g_strdup(s->bootrom_path);
+}
+
+static void nikon_d850_set_bootrom(Object *obj, const char *value, Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+
+    g_free(s->bootrom_path);
+    s->bootrom_path = g_strdup(value);
+}
+
 static char *nikon_d850_get_flash(Object *obj, Error **errp)
 {
     NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
@@ -929,6 +952,80 @@ static void nikon_d850_set_e5_tables(Object *obj, bool value, Error **errp)
     s->e5_tables = value;
 }
 
+static bool nikon_d850_get_bootrom_tables(Object *obj, Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+
+    return s->bootrom_tables;
+}
+
+static void nikon_d850_set_bootrom_tables(Object *obj, bool value, Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+
+    s->bootrom_tables = value;
+}
+
+static bool nikon_d850_get_bootrom_thumb(Object *obj, Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+
+    return s->bootrom_thumb;
+}
+
+static void nikon_d850_set_bootrom_thumb(Object *obj, bool value, Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+
+    s->bootrom_thumb = value;
+}
+
+static void nikon_d850_get_bootrom_tables_base(Object *obj, Visitor *v,
+                                               const char *name, void *opaque,
+                                               Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+    uint64_t value = s->bootrom_tables_base;
+
+    visit_type_uint64(v, name, &value, errp);
+}
+
+static void nikon_d850_set_bootrom_tables_base(Object *obj, Visitor *v,
+                                               const char *name, void *opaque,
+                                               Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+    uint64_t value;
+
+    if (!visit_type_uint64(v, name, &value, errp)) {
+        return;
+    }
+    s->bootrom_tables_base = value;
+}
+
+static void nikon_d850_get_bootrom_arg(Object *obj, Visitor *v,
+                                       const char *name, void *opaque,
+                                       Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+    uint64_t value = s->bootrom_arg;
+
+    visit_type_uint64(v, name, &value, errp);
+}
+
+static void nikon_d850_set_bootrom_arg(Object *obj, Visitor *v,
+                                       const char *name, void *opaque,
+                                       Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+    uint64_t value;
+
+    if (!visit_type_uint64(v, name, &value, errp)) {
+        return;
+    }
+    s->bootrom_arg = value;
+}
+
 static bool nikon_d850_get_e6_prep(Object *obj, Error **errp)
 {
     NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
@@ -1211,6 +1308,37 @@ static void d850_apply_loader_copies(gchar **data, gsize *size)
  * load_image_targphys() registers a ROM blob whose bytes are only written
  * at machine reset, after nikon_d850_init() has returned.
  */
+/*
+ * Load a reconstructed 0x40000000 window.  Unlike the payload path this must
+ * not apply M1/E6 patches: the bytes are already the image that the missing
+ * boot ROM would place there.
+ */
+static void d850_load_bootrom(NikonD850MachineState *s, const char *path,
+                              uint64_t addr, uint64_t max_size)
+{
+    gchar *data = NULL;
+    gsize size = 0;
+    GError *err = NULL;
+
+    if (!g_file_get_contents(path, &data, &size, &err)) {
+        error_report("nikon-d850: cannot load bootrom '%s': %s", path,
+                     err ? err->message : "unknown error");
+        g_clear_error(&err);
+        exit(1);
+    }
+    if (size > max_size) {
+        error_report("nikon-d850: bootrom '%s' (%" G_GSIZE_FORMAT
+                     " bytes) does not fit in the 0x40000000 window "
+                     "(%" PRIu64 " bytes)", path, size, max_size);
+        g_free(data);
+        exit(1);
+    }
+    rom_add_blob_fixed(path, data, size, addr);
+    info_report("nikon-d850: bootrom '%s' loaded: %" G_GSIZE_FORMAT
+                " bytes at 0x%08" PRIx64, path, size, addr);
+    g_free(data);
+}
+
 static void d850_load_payload(NikonD850MachineState *s, const char *path,
                               uint64_t addr, uint64_t max_size)
 {
@@ -1280,6 +1408,31 @@ static void d850_load_payload(NikonD850MachineState *s, const char *path,
     }
     if (s->vector_fix) {
         d850_apply_vector_fix((uint8_t *)data, size);
+    }
+
+    /* The reconstructed stage-2 at 0x40028FF8 is Thumb code, but the image's
+     * `bx ip` literal has bit0 clear.  Host-assisted runs need the Thumb bit;
+     * the real boot ROM is expected to patch the hand-off. */
+    if (s->bootrom_path && s->bootrom_thumb &&
+        size >= D850_STAGE2_LITERAL_OFF + sizeof(uint32_t)) {
+        uint32_t word = ldl_le_p((uint8_t *)data + D850_STAGE2_LITERAL_OFF);
+
+        if (word == (uint32_t)D850_STAGE2_TARGET) {
+            stl_le_p((uint8_t *)data + D850_STAGE2_LITERAL_OFF,
+                     word | 1);
+            info_report("nikon-d850: stage-2 thumb fix: [0x%08" PRIx64
+                        "] 0x%08" PRIx64 " -> 0x%08" PRIx64,
+                        (uint64_t)(D850_PAYLOAD_BASE +
+                                   D850_STAGE2_LITERAL_OFF),
+                        (uint64_t)D850_STAGE2_TARGET,
+                        (uint64_t)D850_STAGE2_TARGET | 1);
+        } else {
+            warn_report("nikon-d850: stage-2 literal at payload offset 0x%08"
+                        PRIx64 " is 0x%08" PRIx32 ", expected 0x%08" PRIx64
+                        "; stage-2 thumb fix skipped",
+                        (uint64_t)D850_STAGE2_LITERAL_OFF, word,
+                        (uint64_t)D850_STAGE2_TARGET);
+        }
     }
 
     rom_add_blob_fixed(path, data, size, addr);
@@ -1519,6 +1672,64 @@ static void nikon_d850_init(MachineState *machine)
         memory_region_init_ram(&s->auxram, NULL, "nikon-d850.auxram",
                                s->auxram_size, &error_fatal);
         memory_region_add_subregion(sysmem, D850_AUXRAM_BASE, &s->auxram);
+    }
+
+    /* Reconstructed 0x40000000 window (experimental).  The in-image loader
+     * table describes two segments ending at 0x40041CA8; this maps them as a
+     * RAM-backed window and, optionally, provides the LPAE tables plus the
+     * [0x400E8450] boot argument the init uses to find them. */
+    if (s->bootrom_path) {
+        if (s->e5_tables || s->vbr_on) {
+            error_report("nikon-d850: bootrom and e5-tables/virtual-boot-rom "
+                         "both use 0x40000000; enable only one");
+            exit(1);
+        }
+        if (s->aux2_size &&
+            s->aux2_base < D850_BOOTROM_BASE + D850_BOOTROM_SIZE &&
+            D850_BOOTROM_BASE < s->aux2_base + s->aux2_size) {
+            error_report("nikon-d850: bootrom overlaps aux2-base=0x%08" PRIx64,
+                         s->aux2_base);
+            exit(1);
+        }
+        memory_region_init_ram(&s->bootrom, NULL, "nikon-d850.bootrom",
+                               D850_BOOTROM_SIZE, &error_fatal);
+        memory_region_add_subregion(sysmem, D850_BOOTROM_BASE, &s->bootrom);
+        d850_load_bootrom(s, s->bootrom_path, D850_BOOTROM_BASE,
+                          D850_BOOTROM_SIZE);
+
+        if (s->bootrom_tables) {
+            uint64_t *t;
+            uint8_t *arg;
+            unsigned n;
+
+            if (s->bootrom_tables_base & 0xfff) {
+                error_report("nikon-d850: boot-tables-base 0x%08" PRIx64
+                             " must be 4 KiB aligned",
+                             s->bootrom_tables_base);
+                exit(1);
+            }
+            memory_region_init_ram(&s->boottbl, NULL, "nikon-d850.boottbl",
+                                   D850_BOOT_TABLES_SIZE, &error_fatal);
+            memory_region_add_subregion(sysmem, s->bootrom_tables_base,
+                                        &s->boottbl);
+            memory_region_init_ram(&s->bootarg, NULL, "nikon-d850.bootarg",
+                                   D850_BOOTARG_SIZE, &error_fatal);
+            memory_region_add_subregion(sysmem, D850_BOOTARG_BASE,
+                                        &s->bootarg);
+
+            t = (uint64_t *)memory_region_get_ram_ptr(&s->boottbl);
+            for (n = 0; n < 4; n++) {
+                /* LPAE level-1 block: valid, 1 GiB, AF=1, SH=inner, AP=rw */
+                t[n] = ((uint64_t)n << 30) | 0x701;
+                t[0x1000 / 8 + n] = ((uint64_t)n << 30) | 0x701;
+            }
+            arg = (uint8_t *)memory_region_get_ram_ptr(&s->bootarg);
+            stl_le_p(arg + D850_BOOTARG_SLOT, (uint32_t)s->bootrom_arg);
+            info_report("nikon-d850: bootrom tables at 0x%08" PRIx64
+                        ", [0x%" PRIx64 "] = 0x%08" PRIx32,
+                        s->bootrom_tables_base, (uint64_t)D850_BOOT_SCRATCH_REG,
+                        (uint32_t)s->bootrom_arg);
+        }
     }
 
     /* E5 boot-ROM fixture: the in-image init points TTBR1 at 0x40000000 and
@@ -1763,7 +1974,7 @@ static void nikon_d850_init(MachineState *machine)
     info_report("nikon-d850: boot=%s, payload=%s @ 0x%08" PRIx64
                 ", flash=%s"
                 ", start=0x%08" PRIx64 ", ram=%" PRIu64 " MiB, cpus=%u"
-                "%s%s%s%s%s%s%s%s%s%s",
+                "%s%s%s%s%s%s%s%s%s%s%s%s",
                 s->boot, payload, s->payload_base,
                 flash ? flash : "(none)",
                 start,
@@ -1777,6 +1988,8 @@ static void nikon_d850_init(MachineState *machine)
                 s->flash_size != D850_FLASH_SIZE ? ", custom-flash" : "",
                 s->auxram_size ? ", aux-ram" : "",
                 s->e5_tables ? ", e5-tables" : "",
+                s->bootrom_path ? ", bootrom" : "",
+                s->bootrom_tables ? ", bootrom-tables" : "",
                 s->mmu_table ? ", mmu-table" : "");
 }
 
@@ -1797,6 +2010,11 @@ static void nikon_d850_instance_init(Object *obj)
     s->e6_prep = false;
     s->vbr_on = false;
     s->e5_tables = false;
+    s->bootrom_path = NULL;
+    s->bootrom_tables = false;
+    s->bootrom_thumb = true;
+    s->bootrom_tables_base = D850_BOOT_TABLES_BASE;
+    s->bootrom_arg = D850_BOOT_ARG_DEFAULT;
     s->mmu_bringup = false;
     s->mmu_table = 0;
     s->auxram_size = 0;
@@ -1955,6 +2173,32 @@ static void nikon_d850_class_init(ObjectClass *oc, const void *data)
     object_class_property_set_description(oc, "e5-tables",
         "Map 0x40000000 as handler RAM and install LPAE identity tables at "
         "0x40000000/0x40001000 (fixture for the missing E5 boot ROM tables)");
+    object_class_property_add_str(oc, "bootrom",
+                                  nikon_d850_get_bootrom,
+                                  nikon_d850_set_bootrom);
+    object_class_property_set_description(oc, "bootrom",
+        "Optional reconstructed 512 KiB image for 0x40000000 (experimental)");
+    object_class_property_add_bool(oc, "bootrom-tables",
+                                   nikon_d850_get_bootrom_tables,
+                                   nikon_d850_set_bootrom_tables);
+    object_class_property_set_description(oc, "bootrom-tables",
+        "Install LPAE identity tables for the bootrom and preset [0x400E8450]");
+    object_class_property_add_bool(oc, "bootrom-thumb",
+                                   nikon_d850_get_bootrom_thumb,
+                                   nikon_d850_set_bootrom_thumb);
+    object_class_property_set_description(oc, "bootrom-thumb",
+        "Set bit0 of the in-image 0x40028FF8 hand-off literal (default on)");
+    object_class_property_add(oc, "bootrom-tables-base", "uint64",
+                              nikon_d850_get_bootrom_tables_base,
+                              nikon_d850_set_bootrom_tables_base, NULL, NULL);
+    object_class_property_set_description(oc, "bootrom-tables-base",
+        "LPAE table base for bootrom-tables (default 0x40708000)");
+    object_class_property_add(oc, "bootrom-arg", "uint64",
+                              nikon_d850_get_bootrom_arg,
+                              nikon_d850_set_bootrom_arg, NULL, NULL);
+    object_class_property_set_description(oc, "bootrom-arg",
+        "Value written to [0x400E8450] for bootrom-tables "
+        "(default 0x00708000)");
 
     object_class_property_add(oc, "lcd-base", "uint64",
                               nikon_d850_get_lcd_base,
