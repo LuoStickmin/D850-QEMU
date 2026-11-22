@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.8 — 2026-11-22
+
+CPU-model and cp1 probes.
+
+- Cortex-A7/A9/A15 all fail at `0x10235618`; A9 stops earlier at `0xFE8`.
+- Ignoring cp1 in `MCR/MRC/MCRR/MRRC` does not help: the Thumb `0xfc44 0x2100`
+  encoding is an EXPEED custom coprocessor, not standard VFP.
+- Patching `file 0x235618` to NOP reaches `0x101fc7a8`, then data abort
+  (`DFAR=0xE`) because the skipped cp1 did not initialize the pointer.
+- Conclusion: GUI requires modeling/deriving the custom cp1, not another
+  address patch.
+
 ## 0.1.7 — 2026-11-22
 
 Peer handshake and stage-2 VFP boundary.

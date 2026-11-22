@@ -78,6 +78,20 @@ PC: 0x1037CBA8 -> 0x1037CBB0 -> ... -> 0x1037E9xx / 0x1037CC88
 - QEMU Cortex-A15 不支持/未使能这条指令。把 `file 0x235618` 的两个 Thumb 字节
   改成 NOP 后，能继续到 `0x10205150 -> 0x10235622 -> 0x101fc7a8`，随后
   data abort/undef（`0x10020010`）。
-- 结论：GUI 之前还有两类真实阻塞：QEMU 的 VFP `mcrr2` 支持，以及后续
-  framebuffer/服务初始化；不是单纯入口地址问题。下一步优先实现该 VFP
-  指令（或精确 patch），再映射 `0x83dfe000` surface 做 dump。
+
+## 8. 2026-11-22 后续：CPU 模型与 cp1 指令
+
+- 试过 `cortex-a7` / `cortex-a9` / `cortex-a15`（含 `has_el3=off`）：
+  - A9 更早在 `0xFE8` 停；
+  - A7/A15 都在 `0x10235618` undefined。
+- 在 QEMU `translate.c` 里把 `MCR/MRC/MCRR/MRRC` 的 cp1 直接 no-op 后，
+  仍在 `0x10235618` undefined。说明 Thumb 编码的 `0xfc44 0x2100`
+  没有走 `trans_MCRR`，或者它是 EXPEED 自定义 coprocessor 编码，不是标准 VFP。
+- 把固件 `file 0x235618` 改成 NOP 后能到：
+  ```text
+  0x10235618 -> 0x10205150 -> 0x10235622 -> 0x101fc7a8
+  ```
+  但 `0x101fc7a8` 的 `ldr r0,[r0,#0xc]` 用 `r0=2` 读 `0xE`，DFAR=0xE；
+  这是跳过 cp1 后指针未初始化的后果，不是独立 bug。
+- 结论：**要真正过这里，需要模型化/反推 EXPEED 的自定义 coprocessor 1，
+  或拿到真机该指令的副作用**；继续 NOP 只会把失败点后移。
