@@ -112,3 +112,20 @@ blocks: 370    MMIO: 43
 随后滑到 `0x00000FF0`。说明 **cp1/r0 只是表象，真正缺的是 boot ROM 提供的
 stage-2 栈/LR/参数块**。这也解释了为什么单纯 NOP 会把失败点后移。
 
+## 10. boot-context：真正要预设的是 `0x400A761C`
+
+`0x10204CF4` 的 `ldr r5, [pc, #0x3b0]` 实际加载 **`0x400A7614`**，随后
+`ldr r1, [r5, #8]` 读的是 **`0x400A761C`**，不是 `0x90001046`。
+把 `0x400A761C` 设为非零后，`0x10204D00` 的 `blx r0` 被跳过：
+
+```text
+status=halt-unexpected  mmio_events=0  exceptions: none
+halt: pc=0x00000FF0  r0=0x00711438  sp=0x00711438  lr=0x4002BD18
+```
+
+- 491 个 TB，stage-2 走到 `0x4003026A` / `0x4002BCF4`；
+- 没有 data abort，但最后仍从栈上取回 0/低地址，滑到 halt 窗口；
+- 说明 `0x400A761C` 是一个真实上下文标志，但 stage-2 的栈/LR 仍未闭合。
+
+已在机器上加了 `boot-context=on` / `run.py --boot-context` 预设该字。
+

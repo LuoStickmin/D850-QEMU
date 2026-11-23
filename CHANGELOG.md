@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.3 — 2026-11-23
+
+Boot-context fixture `0x400A761C`.
+
+- The actual stage-2 context literal at `0x10204CF4` is `0x400A7614`;
+  `[0x400A761C]` is the flag read before the `blx r0` callback.
+- Added `boot-context=on` / `--boot-context`, presetting `[0x400A761C]=1`.
+- Result: no data abort, 491 TB, 0 MMIO, halt at `0xFF0` with
+  `LR=0x4002BD18`; the stack/LR context is still incomplete.
+
 ## 0.2.2 — 2026-11-23
 
 Corrected a1330 extraction and re-scan.

@@ -109,6 +109,7 @@ typedef struct NikonD850MachineState {
     char *bootrom_path;         /* optional reconstructed 0x40000000 image */
     bool bootrom_tables;        /* install LPAE tables for bootrom_path     */
     bool bootrom_thumb;         /* set bit0 of the stage-2 hand-off literal */
+    bool boot_context;          /* preset 0x400A761C for the stage-2 callback */
     uint64_t bootrom_tables_base; /* default 0x40708000                     */
     uint64_t bootrom_arg;       /* value to place at [0x400E8450]          */
     uint32_t boottimer_count;   /* diagnostic free-running counter         */
@@ -1078,6 +1079,20 @@ static void nikon_d850_set_bootrom_thumb(Object *obj, bool value, Error **errp)
     s->bootrom_thumb = value;
 }
 
+static bool nikon_d850_get_boot_context(Object *obj, Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+
+    return s->boot_context;
+}
+
+static void nikon_d850_set_boot_context(Object *obj, bool value, Error **errp)
+{
+    NikonD850MachineState *s = NIKON_D850_MACHINE(obj);
+
+    s->boot_context = value;
+}
+
 static void nikon_d850_get_bootrom_tables_base(Object *obj, Visitor *v,
                                                const char *name, void *opaque,
                                                Error **errp)
@@ -1794,6 +1809,16 @@ static void nikon_d850_init(MachineState *machine)
         memory_region_add_subregion(sysmem, D850_BOOTROM_BASE, &s->bootrom);
         d850_load_bootrom(s, s->bootrom_path, D850_BOOTROM_BASE,
                           D850_BOOTROM_SIZE);
+        if (s->boot_context) {
+            uint8_t *p = (uint8_t *)memory_region_get_ram_ptr(&s->bootrom);
+
+            if (D850_BOOT_CONTEXT_OFF + 4 <= D850_BOOTROM_SIZE) {
+                stl_le_p(p + D850_BOOT_CONTEXT_OFF, 1);
+                info_report("nikon-d850: boot context [0x%08" PRIx64
+                            "] = 1", D850_BOOTROM_BASE +
+                            D850_BOOT_CONTEXT_OFF);
+            }
+        }
 
         if (s->bootrom_tables && (s->bootrom_tables_base & 0xfff)) {
             error_report("nikon-d850: boot-tables-base 0x%08" PRIx64
@@ -2169,6 +2194,7 @@ static void nikon_d850_instance_init(Object *obj)
     s->bootrom_path = NULL;
     s->bootrom_tables = false;
     s->bootrom_thumb = false;
+    s->boot_context = false;
     s->bootrom_tables_base = D850_BOOT_TABLES_BASE;
     s->bootrom_arg = D850_BOOT_ARG_DEFAULT;
     s->mmu_bringup = false;
@@ -2343,7 +2369,12 @@ static void nikon_d850_class_init(ObjectClass *oc, const void *data)
                                    nikon_d850_get_bootrom_thumb,
                                    nikon_d850_set_bootrom_thumb);
     object_class_property_set_description(oc, "bootrom-thumb",
-        "Set bit0 of the in-image 0x40028FF8 hand-off literal (default on)");
+        "Set bit0 of the in-image 0x40028FF8 hand-off literal (default off)");
+    object_class_property_add_bool(oc, "boot-context",
+                                   nikon_d850_get_boot_context,
+                                   nikon_d850_set_boot_context);
+    object_class_property_set_description(oc, "boot-context",
+        "Preset [0x400A761C]=1 to skip the uninitialized stage-2 callback");
     object_class_property_add(oc, "bootrom-tables-base", "uint64",
                               nikon_d850_get_bootrom_tables_base,
                               nikon_d850_set_bootrom_tables_base, NULL, NULL);

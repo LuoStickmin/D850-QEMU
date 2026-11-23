@@ -126,6 +126,8 @@ def build_machine_opts(args: argparse.Namespace) -> str:
             opts.append(f"bootrom-arg=0x{args.boot_arg:08x}")
         if args.bootrom_thumb:
             opts.append("bootrom-thumb=on")
+        if args.boot_context:
+            opts.append("boot-context=on")
     if args.strict:
         opts.append("strict=on")
     return ",".join(opts)
@@ -277,6 +279,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="set bit0 of the 0x40028FF8 hand-off literal for a "
                              "Thumb stage-2 window (default off; the corrected "
                              "0x17B7288 entry is ARM)")
+    parser.add_argument("--boot-context", action="store_true",
+                        help="preset [0x400A761C]=1 to skip the uninitialized "
+                             "stage-2 callback")
     parser.add_argument("--trace", action="append", default=[],
                         help="extra -d item, e.g. --trace in_asm (repeatable)")
     parser.add_argument("--strict", action="store_true",
