@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 — 2026-11-23
+
+Corrected a1330 extraction and re-scan.
+
+- a1330 payload starts at `0xD0` (after the 32-byte module header), not `0xB0`.
+- Re-scan confirms no direct `0x90001046` in a1330; its nine `0x90001040` raw
+  hits are instruction bytes (e.g. inside `add.w`), not reliable pointers.
+- The missing stage-2 context remains most likely boot-ROM-supplied.
+
 ## 0.2.1 — 2026-11-23
 
 Full-firmware scope scan.
