@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1 — 2026-11-23
+
+Full-firmware scope scan.
+
+- Parsed the full `D850_0131_stock.dec` TOC: a1330 at `0xB0`, wma at
+  `0x1000B2`, tpj at `0x1D79DD`, b1330 at `0x1E59DF`.
+- No module other than b1330 contains a direct `0x90001046` literal; a1330's
+  `0x90001040` hits are mostly instruction bytes, not reliable pointers.
+- The missing stage-2 context is therefore more likely boot-ROM-supplied than
+  a ready-made module we can load.
+
 ## 0.2.0 — 2026-11-23
 
 Worklist MMIO modeling: stage-2 path reaches zero unmodelled accesses.

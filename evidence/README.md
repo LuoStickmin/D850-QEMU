@@ -14,6 +14,7 @@
 | [bootrom-correct-stage2.md](bootrom-correct-stage2.md) | 修正到 Fenestra live delta 的映射 | `0x40028FF8` 是 ARM 入口，stage-2 写 `0xC0111450/...`；之后 Thumb 指针 `0x400034B8` undef |
 | [real-reset-progress.md](real-reset-progress.md) | 真实 reset + MIDR/boot RAM/display stub | 过 MIDR，执行到显示/时钟块；停在 `0x800E845C` peer 握手 |
 | [mmio-coverage.md](mmio-coverage.md) | 未建模 MMIO 统计 | stage-2 34 个、真实 reset 42 个、并集 76 个唯一地址 |
+| [full-firmware-scope.md](full-firmware-scope.md) | 全固件 TOC/模块扫描 | a1330/wma/tpj/b1330 均无 `0x90001046` 直接初始化；更像 boot ROM |
 
 `lpae-table.bin` 是 `--e5-tables` 写入的 8 KiB 夹具（两张 4 项 LPAE level-1 表），
 由 `tools/run.py`/机器模型生成，用于让缺失的 boot ROM 页表不再阻断翻译；
