@@ -93,6 +93,7 @@ typedef struct NikonD850MachineState {
     MemoryRegion bootrom;       /* reconstructed 0x40000000 window         */
     MemoryRegion boottbl;       /* LPAE tables for the reconstructed ROM   */
     MemoryRegion bootarg;       /* 0x400E8450 boot-argument page           */
+    uint8_t bootarg_data[D850_BOOTARG_SIZE];
     MemoryRegion boottimer;     /* free-running counter for reset delays    */
     MemoryRegion bootstatus;    /* status bits for reset poll loops          */
     MemoryRegion bootpeer;      /* boot-ROM/CPU1 handshake page              */
@@ -101,6 +102,7 @@ typedef struct NikonD850MachineState {
     MemoryRegion regc011;       /* 0xC0110000 display/GPU register block    */
     MemoryRegion lowscratch;    /* 0x00700000 init scratch                  */
     MemoryRegion reg2e;         /* 0x2E000000 clock/PMU block               */
+    MemoryRegion reset2110;     /* 0x21100000 reset display/clock poll page */
 
     CharFrontend chr;
 
@@ -312,8 +314,13 @@ static const MemoryRegionOps d850_boottimer_ops = {
  */
 static uint64_t d850_bootstatus_read(void *opaque, hwaddr addr, unsigned size)
 {
-    /* GDU/display status: the existing D850 work returns all-ones so
-     * ready/DMA/VSync polls terminate.  This absorbs 0x54xxxxxx reads. */
+    /* GDU/display status: most polls want a ready/ones bit, but the reset
+     * path at 0x1037F34C waits for bit0 of 0x54007D00 to be clear. */
+    /* 0x21100D00 virtual maps to the display/clock status page; the reset
+     * loop waits for bit0 of physical 0x54000D00 to be clear. */
+    if (addr == 0xD00 || addr == 0x7D00) {
+        return 0;
+    }
     return 0xffffffffu;
 }
 
@@ -351,9 +358,82 @@ static void d850_bootpeer_write(void *opaque, hwaddr addr, uint64_t value,
 {
 }
 
+/*
+ * Diagnostic page for the real reset's 0x21100D00 poll.  Logs the access and
+ * returns zero (bit0 clear), so a "wait until clear" loop can proceed; if the
+ * log stays empty, the code is polling a different address.
+ */
+static uint64_t d850_reset2110_read(void *opaque, hwaddr addr, unsigned size)
+{
+    info_report("d850-reset2110: pc=0x%08" PRIx64
+                " rd addr=0x%08" HWADDR_PRIx " size=%u",
+                d850_guest_pc(), addr, size);
+    return 0;
+}
+
+static void d850_reset2110_write(void *opaque, hwaddr addr, uint64_t value,
+                                 unsigned size)
+{
+    info_report("d850-reset2110: pc=0x%08" PRIx64
+                " wr addr=0x%08" HWADDR_PRIx " size=%u value=0x%08" PRIx64,
+                d850_guest_pc(), addr, size, value);
+}
+
+static const MemoryRegionOps d850_reset2110_ops = {
+    .read = d850_reset2110_read,
+    .write = d850_reset2110_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid.min_access_size = 1,
+    .valid.max_access_size = 4,
+    .impl.min_access_size = 1,
+    .impl.max_access_size = 4,
+};
+
 static const MemoryRegionOps d850_bootpeer_ops = {
     .read = d850_bootpeer_read,
     .write = d850_bootpeer_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid.min_access_size = 1,
+    .valid.max_access_size = 4,
+    .impl.min_access_size = 1,
+    .impl.max_access_size = 4,
+};
+
+/* RAM-backed boot-arg page, with diagnostic logging for the 0x400E8450 slot. */
+static uint64_t d850_bootarg_read(void *opaque, hwaddr addr, unsigned size)
+{
+    NikonD850MachineState *s = opaque;
+    uint64_t value = 0;
+
+    if (addr + size <= D850_BOOTARG_SIZE) {
+        memcpy(&value, s->bootarg_data + addr, size);
+    }
+    if (addr == D850_BOOTARG_SLOT) {
+        info_report("d850-bootarg: pc=0x%08" PRIx64
+                    " rd slot value=0x%08" PRIx64,
+                    d850_guest_pc(), value);
+    }
+    return value;
+}
+
+static void d850_bootarg_write(void *opaque, hwaddr addr, uint64_t value,
+                               unsigned size)
+{
+    NikonD850MachineState *s = opaque;
+
+    if (addr + size <= D850_BOOTARG_SIZE) {
+        memcpy(s->bootarg_data + addr, &value, size);
+    }
+    if (addr == D850_BOOTARG_SLOT) {
+        info_report("d850-bootarg: pc=0x%08" PRIx64
+                    " wr slot value=0x%08" PRIx64,
+                    d850_guest_pc(), value);
+    }
+}
+
+static const MemoryRegionOps d850_bootarg_ops = {
+    .read = d850_bootarg_read,
+    .write = d850_bootarg_write,
     .endianness = DEVICE_LITTLE_ENDIAN,
     .valid.min_access_size = 1,
     .valid.max_access_size = 4,
@@ -1833,8 +1913,8 @@ static void nikon_d850_init(MachineState *machine)
                                D850_BOOTRAM_SIZE, &error_fatal);
         memory_region_add_subregion(sysmem, D850_BOOTRAM_BASE,
                                     &s->boottbl);
-        memory_region_init_ram(&s->bootarg, NULL, "nikon-d850.bootarg",
-                               D850_BOOTARG_SIZE, &error_fatal);
+        memory_region_init_io(&s->bootarg, OBJECT(s), &d850_bootarg_ops,
+                              s, "nikon-d850.bootarg", D850_BOOTARG_SIZE);
         memory_region_add_subregion_overlap(sysmem, D850_BOOTARG_BASE,
                                             &s->bootarg, 1);
         memory_region_init_io(&s->boottimer, OBJECT(s), &d850_boottimer_ops,
@@ -1872,10 +1952,12 @@ static void nikon_d850_init(MachineState *machine)
         memory_region_init_ram(&s->reg2e, NULL, "nikon-d850.reg2e",
                                0x2000, &error_fatal);
         memory_region_add_subregion(sysmem, 0x2E000000, &s->reg2e);
+        memory_region_init_io(&s->reset2110, OBJECT(s), &d850_reset2110_ops,
+                              s, "nikon-d850.reset2110", 0x2000);
+        memory_region_add_subregion(sysmem, 0x21100000, &s->reset2110);
 
         if (s->bootrom_tables) {
             uint64_t *t;
-            uint8_t *arg;
             unsigned n;
             uint64_t off = s->bootrom_tables_base - D850_BOOTRAM_BASE;
 
@@ -1894,8 +1976,8 @@ static void nikon_d850_init(MachineState *machine)
                 t[n] = ((uint64_t)n << 30) | 0x701;
                 t[0x1000 / 8 + n] = ((uint64_t)n << 30) | 0x701;
             }
-            arg = (uint8_t *)memory_region_get_ram_ptr(&s->bootarg);
-            stl_le_p(arg + D850_BOOTARG_SLOT, (uint32_t)s->bootrom_arg);
+            stl_le_p(s->bootarg_data + D850_BOOTARG_SLOT,
+                     (uint32_t)s->bootrom_arg);
             info_report("nikon-d850: bootrom tables at 0x%08" PRIx64
                         ", [0x%" PRIx64 "] = 0x%08" PRIx32,
                         s->bootrom_tables_base, (uint64_t)D850_BOOT_SCRATCH_REG,

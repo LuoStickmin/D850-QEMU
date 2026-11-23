@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.4 — 2026-11-23
+
+Real reset reaches the page-table loop; MMU context still missing.
+
+- `0x21100D00` virtual → physical `0x54000D00`; return 0 for offset `0xD00`.
+- Real reset now passes `0x1037F34C` and enters `0x1037CCC0`.
+- It aborts at `0x1037CD3C` `ldrd r6,r7,[r0]` with `DFAR=0`.
+- CPU regs: `R00=0`, `R01=0x40001000`, `R04=0x10380000`.
+- Bootarg IO logging shows no access to `0x400E8450` in this path; presetting
+  it to `0x40708000` does not help.
+
 ## 0.2.3 — 2026-11-23
 
 Boot-context fixture `0x400A761C`.
