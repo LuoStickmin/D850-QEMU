@@ -27,34 +27,32 @@ Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `niko
 - 不提供签名、重打包或升级容器处理；
 - 不是自然上电启动：入口、栈、页表夹具都是主机侧辅助，结论按“辅助启动”标注。
 
-## 当前状态（2026-11-20）
+## 当前状态（2026-11-24）
 
 | 项目 | 状态 |
 | --- | --- |
 | 机器 `nikon-d850` | ✅ 已写并在 QEMU 11.1.0 上编译、实跑 |
-| 镜像装入 | ✅ `b1330_131.bin`（25,671,414 B）@ `0x10000000`，flash 窗口 32 MiB |
-| reset 字 `0x1037CBA8` | ✅ 0 异常、0 MMIO；但它是 boot-service sled，`pop` 回 PC=0 |
-| 镜像内 init `0x1035CE30` | ⚠️ 无页表夹具时：MMU 打开后 prefetch abort；表遍历读 `0x40000000`/`0x40001000`（size=8，LPAE） |
+| 镜像装入 | ✅ `b1330_131.bin`（25,671,414 B）；真实 reset 用 `0x10020000`（Fenestra 基址），host-assisted init 仍可用 `0x10000000` |
+| reset 字 `0x1037CBA8` | ⚠️ 真实 reset 已过 MIDR、显示/时钟轮询；当前停在 `0x1037CD3C` 页表循环，`r0=0`、`DFAR=0` |
+| 镜像内 init `0x1035CE30` | ⚠️ 无页表夹具时 MMU 打开后 prefetch abort；表遍历读 `0x40000000`/`0x40001000`（LPAE） |
 | LPAE 页表夹具 `--e5-tables` | ✅ **0 异常**；init 跑完并 `bx ip` 到 `0x40028FF8` |
-| `0x40028FF8` 之后的 boot ROM | ❌ 缺失；handler RAM 全零，PC 从 `0x40028FF8` 滑到 `0x40040000` |
-| 重建 bootrom 实跑 | ✅ 修正映射后 `0x40028FF8` 是 ARM 入口；stage-2 写 `0xC0111450/...`，随后 Thumb 指针 `0x400034B8` undef |
-| 真实 reset 实跑 | ⚠️ MIDR + peer stub 后过 `0x1037CC88`，写 `0x512000xx`；仍未调用 `0x40028FF8`，也没有 framebuffer |
-| CPU 假设 | ✅ LPAE（`mcrr` 写 TTBR）；Cortex-A9 在 `0x1035D45C` undefined |
+| 重建 bootrom | ✅ 修正映射后 `0x40028FF8` 是 ARM 入口；stage-2 能写 `0xC0111450/...`，但已确认是 CPU/boot-service 设置，不是 GUI 入口 |
+| 真实 reset 实跑 | ⚠️ 过了 `0x1037F34C` 的显示/时钟轮询，进入 `0x1037CCC0` 表页初始化；当前阻塞在 `0x1037CD3C`（`DFAR=0`） |
+| 未建模 MMIO | stage-2 路径 **0**；真实 reset 路径 **552 个唯一地址**，其中 **546 个集中在 `0x80000000..0x8070E7xx`**（页表/DRAM），其余 6 个是时钟/显示块 |
+| CPU 假设 | ✅ LPAE（`mcrr` 写 TTBR）；真实 reset 需 `midr=0x410FC0F4` 才过 MIDR gate |
 | M-core `nikon-d850-mcore`（a1330） | ✅ 跑过 reset/时钟/命令块，停在 idle `0xC05E`；无异常，未找到 console TX |
 | 显示代码（静态） | ✅ `b1330` 内有 `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/菜单字符串 |
-| GUI / LCD | ❌ 固件未执行到显示初始化、未写 framebuffer；QEMU 只有 host-side PPM dump（测试卡见 [docs/display.md](docs/display.md)） |
+| GUI / LCD | ❌ 固件仍未写 framebuffer；QEMU 只有 host-side PPM dump（测试卡见 [docs/display.md](docs/display.md)） |
 | UART / 串口输出 | ❌ A-core 未观测到（`uart=0B`）；M-core 也未找到 TX 路径 |
 | 真机验证 | ❌ 本原型不产生可刷写镜像，也没有实机记录 |
 
-显示/EGL/TFT/菜单字符串只能证明代码在镜像里；当前运行到 `0x40028FF8` 为止，
-**没有观测到任何 LCD/GPU/HDMI MMIO**，所以还没有固件 GUI 或固件画面。M-core
-能跑到 idle，但 GUI 渲染仍在 A-core 侧，且 M-core 的 console/显示路径也还没定位。
+一句话：**入口和 stage-2 已经不再是主要问题。真实 reset 现在卡在页表/DRAM
+`0x80000000` 区未映射；这是当前最明确的下一块。补上后仍需要显示初始化和
+framebuffer 证据，才能谈固件 GUI。**
 
-一句话：**A-core 的镜像内 init 已经能在 QEMU 里完整跑完，M-core 能跑到 idle；
-缺的仍是 `0x40000000` 区的 boot ROM/stage-2，以及显示/输入/GPU 模型。**
-
-细节：[docs/status.md](docs/status.md)、[docs/boot-chain.md](docs/boot-chain.md)；
-原始运行证据在 [evidence/](evidence/README.md)。
+细节：[docs/status.md](docs/status.md)、[docs/boot-chain.md](docs/boot-chain.md)、
+[docs/bootrom.md](docs/bootrom.md)；运行证据在 [evidence/](evidence/README.md)，
+最新阻塞见 [evidence/real-reset-progress.md](evidence/real-reset-progress.md)。
 
 ## 快速开始
 

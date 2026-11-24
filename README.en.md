@@ -29,33 +29,31 @@ Out of scope: CMOS/ISP/storage/UI emulation, repacking, signatures, upgrade
 containers, and any claim of natural power-on. Entry, stack and page tables are
 host-assisted and labelled as such.
 
-## Status (2026-11-20)
+## Status (2026-11-24)
 
 | Item | Status |
 | --- | --- |
 | `nikon-d850` machine | done; builds and runs on QEMU 11.1.0 |
-| Image load | `b1330_131.bin` (25,671,414 B) at `0x10000000`, 32 MiB flash window |
-| Reset word `0x1037CBA8` | 0 exceptions, 0 MMIO; it is a boot-service sled and pops to PC=0 |
-| In-image init `0x1035CE30` | without tables: prefetch abort after MMU enable; table walks read `0x40000000`/`0x40001000` (size 8, LPAE) |
+| Image load | `b1330_131.bin` (25,671,414 B); real reset uses `0x10020000` (Fenestra base), host-assisted init can still use `0x10000000` |
+| Reset word `0x1037CBA8` | real reset passes MIDR and display/clock polling; now stops at `0x1037CD3C` (`r0=0`, `DFAR=0`) |
+| In-image init `0x1035CE30` | without tables: prefetch abort after MMU enable; table walks read `0x40000000`/`0x40001000` (LPAE) |
 | LPAE fixture `--e5-tables` | **0 exceptions**; init completes and `bx ip` to `0x40028FF8` |
-| Boot ROM at `0x40028FF8` | missing; handler RAM is zero, PC slides to `0x40040000` |
-| Reconstructed bootrom | Corrected mapping: `0x40028FF8` is an ARM entry; stage-2 writes `0xC0111450/...`, then a Thumb pointer at `0x400034B8` undefines |
-| Real-reset run | MIDR + peer stub pass `0x1037CC88` and write `0x512000xx`; `0x40028FF8` is still not called, and there are no framebuffer pixels |
-| CPU | LPAE (`mcrr` TTBR writes); Cortex-A9 faults at `0x1035D45C` |
+| Reconstructed bootrom | corrected mapping makes `0x40028FF8` an ARM entry; stage-2 runs, but is a CPU/boot-service setup, not a GUI entry |
+| Real-reset run | passes the `0x1037F34C` display/clock poll and enters `0x1037CCC0`; blocked at `0x1037CD3C` with `DFAR=0` |
+| Unmodelled MMIO | stage-2 path: **0**; real reset: **552 unique**, 546 of them in `0x80000000..0x8070E7xx` (page tables/DRAM), 6 clock/display registers |
+| CPU | LPAE; real reset needs `midr=0x410FC0F4` to pass the MIDR gate |
 | M-core `nikon-d850-mcore` (a1330) | boots through reset/clock/command blocks to idle `0xC05E`; no exception, no console TX found |
 | Display code (static) | `b1330` contains `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/menu strings |
-| GUI / LCD | no firmware display init and no framebuffer writes; QEMU has only a host-side PPM dump (test card: [docs/display.md](docs/display.md)) |
+| GUI / LCD | no firmware framebuffer writes; QEMU has only a host-side PPM dump (test card: [docs/display.md](docs/display.md)) |
 | UART output | none observed for A-core (`uart=0B`); no TX path found for M-core |
 | Real camera test | none; this prototype produces no flashable image |
 
-The display strings prove the code exists in the image, but execution stops at
-`0x40028FF8` and **no LCD/GPU/HDMI MMIO has been observed**, so there is no
-firmware GUI or firmware-rendered frame yet. M-core reaches idle, but GUI rendering is still on the A-core side and its
-console/display path is also unlocated.
+In one sentence: **the entry and stage-2 are no longer the main issue; the real
+reset is now blocked by the unmapped `0x80000000` page-table/DRAM region, and a
+firmware GUI still needs display init and framebuffer evidence afterwards.**
 
-In one sentence: **the A-core in-image init already runs to completion and
-M-core reaches idle; what is still missing is the `0x40000000` boot ROM/stage-2
-and the display/input/GPU models.**
+Details: [docs/status.md](docs/status.md), [docs/bootrom.md](docs/bootrom.md),
+and [evidence/real-reset-progress.md](evidence/real-reset-progress.md).
 
 ## Quick start
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.5 — 2026-11-24
+
+README/status refresh for the current real-reset blocker.
+
+- Real reset: 552 unique unmodelled addresses; 546 are in
+  `0x80000000..0x8070E7xx` (page tables/DRAM), six are clock/display.
+- Stage-2 path: zero unmodelled MMIO.
+- Current blocker: `0x1037CD3C` `ldrd r6,r7,[r0]` with `r0=0`, `DFAR=0`.
+- GUI still requires the `0x80000000` mapping, display init, and a first
+  framebuffer write.
+
 ## 0.2.4 — 2026-11-23
 
 Real reset reaches the page-table loop; MMU context still missing.
