@@ -103,6 +103,8 @@ typedef struct NikonD850MachineState {
     MemoryRegion lowscratch;    /* 0x00700000 init scratch                  */
     MemoryRegion reg2e;         /* 0x2E000000 clock/PMU block               */
     MemoryRegion reset2110;     /* 0x21100000 reset display/clock poll page */
+    MemoryRegion dram8000;      /* 0x80000000 DRAM/page tables/framebuffer  */
+    MemoryRegion reg5430;       /* 0x54300000 LCD/clock register file       */
 
     CharFrontend chr;
 
@@ -1927,11 +1929,15 @@ static void nikon_d850_init(MachineState *machine)
                               D850_BOOT_STATUS_SIZE);
         memory_region_add_subregion(sysmem, D850_BOOT_STATUS_BASE,
                                     &s->bootstatus);
+        memory_region_init_ram(&s->dram8000, NULL, "nikon-d850.dram8000",
+                               0x10000000, &error_fatal);
+        memory_region_add_subregion_overlap(sysmem, 0x80000000,
+                                            &s->dram8000, 0);
         memory_region_init_io(&s->bootpeer, OBJECT(s), &d850_bootpeer_ops,
                               s, "nikon-d850.bootpeer",
                               D850_BOOT_PEER_SIZE);
-        memory_region_add_subregion(sysmem, D850_BOOT_PEER_BASE,
-                                    &s->bootpeer);
+        memory_region_add_subregion_overlap(sysmem, D850_BOOT_PEER_BASE,
+                                            &s->bootpeer, 1);
         memory_region_init_io(&s->bootstatus2, OBJECT(s), &d850_bootstatus_ops,
                               s, "nikon-d850.bootstatus2",
                               D850_BOOT_STATUS2_SIZE);
@@ -1952,6 +1958,10 @@ static void nikon_d850_init(MachineState *machine)
         memory_region_init_ram(&s->reg2e, NULL, "nikon-d850.reg2e",
                                0x2000, &error_fatal);
         memory_region_add_subregion(sysmem, 0x2E000000, &s->reg2e);
+        memory_region_init_ram(&s->reg5430, NULL, "nikon-d850.reg5430",
+                               0x1000, &error_fatal);
+        memory_region_add_subregion_overlap(sysmem, 0x54300000,
+                                            &s->reg5430, 1);
         memory_region_init_io(&s->reset2110, OBJECT(s), &d850_reset2110_ops,
                               s, "nikon-d850.reset2110", 0x2000);
         memory_region_add_subregion(sysmem, 0x21100000, &s->reset2110);

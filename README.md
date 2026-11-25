@@ -43,6 +43,7 @@ Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `niko
 | M-core `nikon-d850-mcore`（a1330） | ✅ 跑过 reset/时钟/命令块，停在 idle `0xC05E`；无异常，未找到 console TX |
 | 显示代码（静态） | ✅ `b1330` 内有 `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/菜单字符串 |
 | GUI / LCD | ❌ 固件仍未写 framebuffer；QEMU 只有 host-side PPM dump（测试卡见 [docs/display.md](docs/display.md)） |
+| assisted GUI 冷调用 | ⚠️ APPMENU 是菜单状态 handler；LCD init `0x1033A3F4` 可调用；仍无 framebuffer，需要 T-Kernel 任务 checkpoint（[evidence/assisted-gui.md](evidence/assisted-gui.md)） |
 | UART / 串口输出 | ❌ A-core 未观测到（`uart=0B`）；M-core 也未找到 TX 路径 |
 | 真机验证 | ❌ 本原型不产生可刷写镜像，也没有实机记录 |
 

@@ -15,6 +15,7 @@
 | [real-reset-progress.md](real-reset-progress.md) | 真实 reset + MIDR/boot RAM/display stub | 过 MIDR，执行到显示/时钟块；停在 `0x800E845C` peer 握手 |
 | [mmio-coverage.md](mmio-coverage.md) | 未建模 MMIO 统计 | stage-2 34 个、真实 reset 42 个、并集 76 个唯一地址 |
 | [full-firmware-scope.md](full-firmware-scope.md) | 全固件 TOC/模块扫描 | a1330/wma/tpj/b1330 均无 `0x90001046` 直接初始化；更像 boot ROM |
+| [assisted-gui.md](assisted-gui.md) | assisted 冷调用 GUI 路线 | APPMENU 是状态 handler；LCD init `0x1033A3F4` 可调用；无 framebuffer |
 
 `lpae-table.bin` 是 `--e5-tables` 写入的 8 KiB 夹具（两张 4 项 LPAE level-1 表），
 由 `tools/run.py`/机器模型生成，用于让缺失的 boot ROM 页表不再阻断翻译；

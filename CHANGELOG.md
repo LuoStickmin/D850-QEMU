@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.7 — 2026-11-26
+
+Assisted GUI cold-call boundary.
+
+- Map `0x80000000..0x90000000` RAM; real-reset unmodelled addresses drop
+  from 552 to 6.
+- Map `0x54300000` LCD/clock register page.
+- `APPMENU 0x1025368C` cold-called in Thumb: 287 TB, 0 exception, 0 MMIO,
+  no framebuffer; it is a menu-item state handler.
+- `0x1033A3F4` is a callable LCD/clock init (`0x543001E4..0x5430039C`).
+- No `0x83DFE000`/`0x86DA0400` writes; no firmware GUI. Cold-call assisted
+  route needs a T-Kernel task/menu checkpoint to go further.
+
+## 0.2.6 — 2026-11-24
+
+Map the `0x80000000` DRAM/page-table region.
+
+- Added 128 MiB RAM at `0x80000000..0x90000000`; bootpeer kept at higher
+  priority.
+- Real reset unmodelled addresses: **552 -> 6**.
+- Remaining: `0x51000020`, `0x51200010/14/18`, `0x512D0000`, `0x5E0014EC`.
+- Still aborts at `0x1037CD3C` with `r0=0`, `DFAR=0`; runtime bytes match the
+  static b1330 code, so this is not relocation.
+- No `0x83DFE000` framebuffer writes yet.
+
 ## 0.2.5 — 2026-11-24
 
 README/status refresh for the current real-reset blocker.
