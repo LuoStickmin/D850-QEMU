@@ -93,6 +93,7 @@ typedef struct NikonD850MachineState {
     MemoryRegion bootrom;       /* reconstructed 0x40000000 window         */
     MemoryRegion boottbl;       /* LPAE tables for the reconstructed ROM   */
     MemoryRegion bootarg;       /* 0x400E8450 boot-argument page           */
+    MemoryRegion bootarg_hi;    /* 0x800E8450 alias after TTBR0_S mapping  */
     uint8_t bootarg_data[D850_BOOTARG_SIZE];
     MemoryRegion boottimer;     /* free-running counter for reset delays    */
     MemoryRegion bootstatus;    /* status bits for reset poll loops          */
@@ -1933,6 +1934,10 @@ static void nikon_d850_init(MachineState *machine)
                                0x10000000, &error_fatal);
         memory_region_add_subregion_overlap(sysmem, 0x80000000,
                                             &s->dram8000, 0);
+        memory_region_init_io(&s->bootarg_hi, OBJECT(s), &d850_bootarg_ops,
+                              s, "nikon-d850.bootarg-hi", 0x458);
+        memory_region_add_subregion_overlap(sysmem, 0x800E8000,
+                                            &s->bootarg_hi, 2);
         memory_region_init_io(&s->bootpeer, OBJECT(s), &d850_bootpeer_ops,
                               s, "nikon-d850.bootpeer",
                               D850_BOOT_PEER_SIZE);

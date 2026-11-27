@@ -27,18 +27,17 @@ Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `niko
 - 不提供签名、重打包或升级容器处理；
 - 不是自然上电启动：入口、栈、页表夹具都是主机侧辅助，结论按“辅助启动”标注。
 
-## 当前状态（2026-11-24）
+## 当前状态（2026-11-28）
 
 | 项目 | 状态 |
 | --- | --- |
 | 机器 `nikon-d850` | ✅ 已写并在 QEMU 11.1.0 上编译、实跑 |
 | 镜像装入 | ✅ `b1330_131.bin`（25,671,414 B）；真实 reset 用 `0x10020000`（Fenestra 基址），host-assisted init 仍可用 `0x10000000` |
-| reset 字 `0x1037CBA8` | ⚠️ 真实 reset 已过 MIDR、显示/时钟轮询；当前停在 `0x1037CD3C` 页表循环，`r0=0`、`DFAR=0` |
-| 镜像内 init `0x1035CE30` | ⚠️ 无页表夹具时 MMU 打开后 prefetch abort；表遍历读 `0x40000000`/`0x40001000`（LPAE） |
-| LPAE 页表夹具 `--e5-tables` | ✅ **0 异常**；init 跑完并 `bx ip` 到 `0x40028FF8` |
-| 重建 bootrom | ✅ 修正映射后 `0x40028FF8` 是 ARM 入口；stage-2 能写 `0xC0111450/...`，但已确认是 CPU/boot-service 设置，不是 GUI 入口 |
-| 真实 reset 实跑 | ⚠️ 过了 `0x1037F34C` 的显示/时钟轮询，进入 `0x1037CCC0` 表页初始化；当前阻塞在 `0x1037CD3C`（`DFAR=0`） |
-| 未建模 MMIO | stage-2 路径 **0**；真实 reset 路径 **552 个唯一地址**，其中 **546 个集中在 `0x80000000..0x8070E7xx`**（页表/DRAM），其余 6 个是时钟/显示块 |
+| reset 字 `0x1037CBA8` | ✅ 真实 reset 已通过 `0x1037CD3C`，进入 `0x40028FF8` stage-2 和 boot ROM |
+| M1：MMU/bootarg | ✅ 安全 `TTBR0=0x10389000`；虚拟 `0x400E8450` → 物理 `0x800E8450`，已加 bootarg 别名 |
+| M2：T-Kernel | ⚠️ T-Kernel 在 `0x40000000` 窗内（`init_kernel`/`start_system`/`FirstLoad1`）；当前停在 `0x400022F8` 的输入/命令循环 |
+| 真实 reset 实跑 | ⚠️ 1647 TB，stage-2 已命中；最后 1 个 data abort `DFAR=0xC`，不是 M1 阻塞 |
+| 未建模 MMIO | ✅ 当前路径只剩 6 个：`0x51000020`、`0x51200010/14/18`、`0x512D0000`、`0x5E0014EC` |
 | CPU 假设 | ✅ LPAE（`mcrr` 写 TTBR）；真实 reset 需 `midr=0x410FC0F4` 才过 MIDR gate |
 | M-core `nikon-d850-mcore`（a1330） | ✅ 跑过 reset/时钟/命令块，停在 idle `0xC05E`；无异常，未找到 console TX |
 | 显示代码（静态） | ✅ `b1330` 内有 `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/菜单字符串 |
@@ -47,13 +46,12 @@ Nikon D850（EXPEED 5 / E5）固件研究用的 QEMU 验证原型：一个 `niko
 | UART / 串口输出 | ❌ A-core 未观测到（`uart=0B`）；M-core 也未找到 TX 路径 |
 | 真机验证 | ❌ 本原型不产生可刷写镜像，也没有实机记录 |
 
-一句话：**入口和 stage-2 已经不再是主要问题。真实 reset 现在卡在页表/DRAM
-`0x80000000` 区未映射；这是当前最明确的下一块。补上后仍需要显示初始化和
-framebuffer 证据，才能谈固件 GUI。**
+一句话：**真实 reset 已经越过 MMU 阻塞并进入 boot ROM/stage-2；T-Kernel 也在
+`0x40000000` 窗内，当前卡在 boot monitor 的输入/命令循环，而不是启动链本身。**
 
 细节：[docs/status.md](docs/status.md)、[docs/boot-chain.md](docs/boot-chain.md)、
 [docs/bootrom.md](docs/bootrom.md)；运行证据在 [evidence/](evidence/README.md)，
-最新阻塞见 [evidence/real-reset-progress.md](evidence/real-reset-progress.md)。
+M1/M2 见 [evidence/m1-mmu.md](evidence/m1-mmu.md)、[evidence/m2-tkernel.md](evidence/m2-tkernel.md)。
 
 ## 快速开始
 

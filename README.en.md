@@ -29,18 +29,17 @@ Out of scope: CMOS/ISP/storage/UI emulation, repacking, signatures, upgrade
 containers, and any claim of natural power-on. Entry, stack and page tables are
 host-assisted and labelled as such.
 
-## Status (2026-11-24)
+## Status (2026-11-28)
 
 | Item | Status |
 | --- | --- |
 | `nikon-d850` machine | done; builds and runs on QEMU 11.1.0 |
 | Image load | `b1330_131.bin` (25,671,414 B); real reset uses `0x10020000` (Fenestra base), host-assisted init can still use `0x10000000` |
-| Reset word `0x1037CBA8` | real reset passes MIDR and display/clock polling; now stops at `0x1037CD3C` (`r0=0`, `DFAR=0`) |
-| In-image init `0x1035CE30` | without tables: prefetch abort after MMU enable; table walks read `0x40000000`/`0x40001000` (LPAE) |
-| LPAE fixture `--e5-tables` | **0 exceptions**; init completes and `bx ip` to `0x40028FF8` |
-| Reconstructed bootrom | corrected mapping makes `0x40028FF8` an ARM entry; stage-2 runs, but is a CPU/boot-service setup, not a GUI entry |
-| Real-reset run | passes the `0x1037F34C` display/clock poll and enters `0x1037CCC0`; blocked at `0x1037CD3C` with `DFAR=0` |
-| Unmodelled MMIO | stage-2 path: **0**; real reset: **552 unique**, 546 of them in `0x80000000..0x8070E7xx` (page tables/DRAM), 6 clock/display registers |
+| Reset word `0x1037CBA8` | real reset passes `0x1037CD3C`, enters `0x40028FF8` stage-2 and boot ROM |
+| M1: MMU/bootarg | secure `TTBR0=0x10389000`; virtual `0x400E8450` → physical `0x800E8450`; bootarg alias added |
+| M2: T-Kernel | T-Kernel lives in the `0x40000000` window (`init_kernel`/`start_system`/`FirstLoad1`); currently sits in the `0x400022F8` input/command loop |
+| Real-reset run | 1647 TB; stage-2 hit; one data abort remains at `0x10020010` (`DFAR=0xC`), not the M1 blocker |
+| Unmodelled MMIO | only 6 left: `0x51000020`, `0x51200010/14/18`, `0x512D0000`, `0x5E0014EC` |
 | CPU | LPAE; real reset needs `midr=0x410FC0F4` to pass the MIDR gate |
 | M-core `nikon-d850-mcore` (a1330) | boots through reset/clock/command blocks to idle `0xC05E`; no exception, no console TX found |
 | Display code (static) | `b1330` contains `PLL_LCD`/`TFT`/`EGL`/`DMP`/`HDMI`/menu strings |
@@ -48,12 +47,13 @@ host-assisted and labelled as such.
 | UART output | none observed for A-core (`uart=0B`); no TX path found for M-core |
 | Real camera test | none; this prototype produces no flashable image |
 
-In one sentence: **the entry and stage-2 are no longer the main issue; the real
-reset is now blocked by the unmapped `0x80000000` page-table/DRAM region, and a
-firmware GUI still needs display init and framebuffer evidence afterwards.**
+In one sentence: **the real reset now clears the MMU blocker and reaches stage-2;
+T-Kernel is inside the `0x40000000` window, and the current stop is the boot
+monitor input/command loop rather than the boot chain itself.**
 
 Details: [docs/status.md](docs/status.md), [docs/bootrom.md](docs/bootrom.md),
-and [evidence/real-reset-progress.md](evidence/real-reset-progress.md).
+[evidence/m1-mmu.md](evidence/m1-mmu.md), and
+[evidence/m2-tkernel.md](evidence/m2-tkernel.md).
 
 ## Quick start
 

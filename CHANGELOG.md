@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.2.9 — 2026-11-28
+
+M2 initial: T-Kernel located in the reconstructed 0x40000000 window.
+
+- Real reset after M1 enters `0x40028FF8` stage-2 and then boot ROM code.
+- T-Kernel strings/code are in the 0x40000000 window: `init_kernel`,
+  `start_system`, `FirstLoad1/2`, `T-Kernel/OS SVC`.
+- Current stop: `0x400022F8` input/command loop (checks 0xD/0xA/8), likely a
+  boot monitor rather than the T-Kernel entry.
+- One data abort remains at `0x10020010` (`DFAR=0xC`); 6 clock/display
+  addresses remain unmodelled; no framebuffer.
+- Next: find the monitor command/flag that enters `0x400044xx`/`start_system`,
+  or cold-jump the T-Kernel init path.
+
+## 0.2.8 — 2026-11-28
+
+M1 passed: real reset clears `0x1037CD3C` and enters stage-2.
+
+- Secure TTBR0/1: `0x10389000`/`0x10380000`, TTBCR `0xB1003100`.
+- `TTBR0_S` level-1 entry[1] maps `0x40000000..0x7FFFFFFF` to physical
+  `0x80000000`, so virtual `0x400E8450` is physical `0x800E8450`.
+- Added bootarg alias IO at `0x800E8000` (0x458 bytes, priority 2).
+- `[0x400E8450]` now reads `0x40708000`; real reset reaches `0x40028FF8`.
+- One data abort remains at `0x10020010` (`DFAR=0xC`), not the M1 blocker.
+- No framebuffer yet.
+
 ## 0.2.7 — 2026-11-26
 
 Assisted GUI cold-call boundary.
