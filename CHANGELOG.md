@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 — 2026-11-28
+
+M2 command-table boundary.
+
+- The boot shell parser is `0x40001F38`; its command table pointer is
+  `0x4007C3B8`, 12-byte entries `{name, alias, handler}`.
+- `bootrom_correct.bin` and `bootrom_win.bin` are all-zero at `0x4007C3B8`;
+  the command names/handlers are not reconstructed.
+- T-Kernel init/start code is present at `0x40004400`/`start_system`, but the
+  shell command that reaches it is unknown.
+- No framebuffer yet.
+
 ## 0.2.9 — 2026-11-28
 
 M2 initial: T-Kernel located in the reconstructed 0x40000000 window.
