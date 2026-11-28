@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1 — 2026-11-28
+
+M2 cold-jump into T-Kernel init.
+
+- Patched the boot-window source at b1330 `0x22F8` (`movs r0,#0; b.w
+  0x40004400`) to skip the shell monitor.
+- Real reset executes the T-Kernel init path through `0x40004400`,
+  `0x400189A8`, `0x400174A4`, `0x400097C8`, `0x40009750`, `0x40028868`.
+- Fails at `0x40028868` (`PC=0`) because a service pointer from the missing
+  `0x4007Cxxx` boot-ROM data table is zero.
+- Same missing region contains the shell command table (`0x4007C3B8`).
+
 ## 0.3.0 — 2026-11-28
 
 M2 command-table boundary.
